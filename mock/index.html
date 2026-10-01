@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SNS TimeLine（プロトタイプ）</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <!-- デモ用バー：Mockであることの表示、ユーザー切り替え、データ初期化 -->
+  <div class="demo-bar" role="note">
+    <span class="demo-bar__label">🧪 プロトタイプ</span>
+    <span class="demo-bar__text">データはこのブラウザ内（localStorage）だけに保存されます</span>
+    <label class="demo-bar__switch">
+      ユーザー切替
+      <select id="demo-user-switch" aria-label="デモ用ユーザー切替"></select>
+    </label>
+    <button type="button" id="demo-reset" class="demo-bar__reset">データを初期化</button>
+  </div>
+
+  <!-- 画面はすべて script.js がここに描画する（ハッシュ #/... で画面を切り替える） -->
+  <div id="app"></div>
+
+  <!-- 投稿作成モーダル（SC-04）・画像の拡大表示などのオーバーレイ -->
+  <div id="overlay-root"></div>
+
+  <!-- 操作結果の通知 -->
+  <div id="toast-root" aria-live="polite"></div>
+
+  <noscript>このプロトタイプを表示するには JavaScript を有効にしてください。</noscript>
+  <script src="script.js"></script>
+</body>
+</html>
