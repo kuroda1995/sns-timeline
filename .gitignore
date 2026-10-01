@@ -1,0 +1,38 @@
+# ===== 秘密情報(絶対にコミットしない) =====
+# DBパスワード・JWT署名キーなどを含む環境変数ファイル
+.env
+.env.*
+# ローカル開発用の接続情報
+backend/src/main/resources/application-local.properties
+
+# ===== Terraform =====
+# ステートファイルには設定値が平文で入るためコミットしない
+infra/.terraform/
+infra/*.tfstate
+infra/*.tfstate.*
+# 自分のIP・DBパスワードなど環境固有の値
+infra/terraform.tfvars
+infra/*.auto.tfvars
+
+# ===== バックエンド(Spring Boot / Gradle) =====
+backend/.gradle/
+backend/build/
+backend/bin/
+backend/out/
+# ローカルに保存したアップロード画像
+backend/uploads/
+
+# ===== フロントエンド(React / Vite) =====
+frontend/node_modules/
+frontend/dist/
+
+# ===== エディタ・OS =====
+.idea/
+*.iml
+.vscode/*
+!.vscode/extensions.json
+.DS_Store
+Thumbs.db
+
+# ===== Claude Code(個人設定) =====
+.claude/settings.local.json
