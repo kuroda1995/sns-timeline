@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import * as authApi from '../api/authApi.js'
-import { setUnauthorizedHandler, tokenStorage } from '../api/http.js'
+import { setUnauthorizedHandler, TOKEN_STORAGE_KEY, tokenStorage } from '../api/http.js'
 import { AuthContext } from './AuthContext.js'
 
 export function AuthProvider({ children }) {
@@ -52,6 +52,39 @@ export function AuthProvider({ children }) {
       })
     return () => {
       cancelled = true
+    }
+  }, [logout])
+
+  // 保存済みのトークンと画面の状態を合わせ直す。
+  // ・「戻る」でブラウザがログイン中だったページをメモリから復元したとき(Back-Forward Cache)
+  // ・別のタブでログイン/ログアウトしたとき
+  // のどちらも、Reactの状態は古いままになるため
+  useEffect(() => {
+    const sync = () => {
+      if (!tokenStorage.get()) {
+        logout()
+        return
+      }
+      authApi
+        .me()
+        .then((me) => {
+          setUser(me)
+          setStatus('authenticated')
+        })
+        .catch(logout)
+    }
+    const handlePageShow = (e) => {
+      if (e.persisted) sync()
+    }
+    const handleStorage = (e) => {
+      // e.key が null になるのは localStorage.clear() のとき
+      if (e.key === TOKEN_STORAGE_KEY || e.key === null) sync()
+    }
+    window.addEventListener('pageshow', handlePageShow)
+    window.addEventListener('storage', handleStorage)
+    return () => {
+      window.removeEventListener('pageshow', handlePageShow)
+      window.removeEventListener('storage', handleStorage)
     }
   }, [logout])
 
