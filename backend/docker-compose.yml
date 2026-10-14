@@ -1,0 +1,18 @@
+# ローカル開発用のPostgreSQL
+# パスワードは backend/.env(.gitignore 済み)の POSTGRES_PASSWORD で渡す。.env.example をコピーして作る
+services:
+  postgres:
+    image: postgres:16
+    container_name: sns-timeline-postgres
+    environment:
+      POSTGRES_DB: sns_timeline
+      POSTGRES_USER: sns_timeline
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?backend/.env に POSTGRES_PASSWORD を設定してください}
+      TZ: UTC
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+
+volumes:
+  postgres-data:

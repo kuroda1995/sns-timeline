@@ -2,6 +2,8 @@
 # DBパスワード・JWT署名キーなどを含む環境変数ファイル
 .env
 .env.*
+# 値を入れていない雛形はコミットする
+!.env.example
 # ローカル開発用の接続情報
 backend/src/main/resources/application-local.properties
 
