@@ -1,0 +1,11 @@
+# このファイルを application-local.properties という名前でコピーし、値を書き換えて使う
+# (application-local.properties は .gitignore 済み。コミットしないこと)
+
+spring.datasource.url=jdbc:postgresql://localhost:5432/sns_timeline
+spring.datasource.username=sns_timeline
+# backend/.env の POSTGRES_PASSWORD と同じ値にする
+spring.datasource.password=change-me
+
+# 32バイト以上のランダムな文字列にする
+# 例(PowerShell): [Convert]::ToBase64String((1..48 | ForEach-Object { Get-Random -Maximum 256 }))
+app.jwt.secret=change-me-to-a-random-string-of-at-least-32-bytes
