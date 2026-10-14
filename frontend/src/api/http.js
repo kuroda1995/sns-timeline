@@ -3,27 +3,28 @@
 const BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? (import.meta.env.DEV ? 'http://localhost:8080' : '')
 
-const TOKEN_KEY = 'snsTimeline.token'
+/** JWTを保存する localStorage のキー(別タブでの変更を storage イベントで検知するときにも使う) */
+export const TOKEN_STORAGE_KEY = 'snsTimeline.token'
 
 // localStorage はプライベートブラウズ等で使えないことがあるため、失敗しても落ちないようにする
 export const tokenStorage = {
   get() {
     try {
-      return localStorage.getItem(TOKEN_KEY)
+      return localStorage.getItem(TOKEN_STORAGE_KEY)
     } catch {
       return null
     }
   },
   set(token) {
     try {
-      localStorage.setItem(TOKEN_KEY, token)
+      localStorage.setItem(TOKEN_STORAGE_KEY, token)
     } catch {
       // 保存できなくても、このタブを開いている間はログイン状態を保てる
     }
   },
   clear() {
     try {
-      localStorage.removeItem(TOKEN_KEY)
+      localStorage.removeItem(TOKEN_STORAGE_KEY)
     } catch {
       // 何もしない
     }
