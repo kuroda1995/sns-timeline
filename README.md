@@ -4,7 +4,7 @@ X（旧Twitter）風のテキストタイムライン型SNS（プログラミン
 
 ログインした複数のユーザーが、テキストや画像を投稿し、お互いの投稿にいいね・コメントできるシンプルなSNS。フォローしたユーザーの投稿がタイムラインに新しい順で並ぶ。X/Twitterとの違いとして、**インプレッション数（表示回数）を表示しない**、**リツイート（リポスト）機能を持たない**ことで、数字や拡散を気にせず投稿できる場を目指す。
 
-要件定義・設計を終えた段階で、実装はこれから（[開発フェーズ](#開発フェーズ)参照）。画面と操作は、HTML/CSS/JavaScriptだけで作った[プロトタイプ（mock/）](#mock-について)で先に確認できる。
+フェーズ1の実装中で、現在は認証機能（新規登録・ログイン・ログアウト）まで動く（[開発フェーズ](#開発フェーズ)参照）。画面と操作は、HTML/CSS/JavaScriptだけで作った[プロトタイプ（mock/）](#mock-について)で先に確認できる。
 
 ## ドキュメント一覧
 
@@ -106,7 +106,7 @@ X（旧Twitter）風のテキストタイムライン型SNS（プログラミン
 |----------|------|------|
 | 要件定義・設計 | 完了 | 要件定義書・機能一覧・設計書・機能定義書・インフラ構成図の作成 |
 | プロトタイプ | 完了 | HTML/CSS/JavaScriptだけの画面確認用モック（`mock/`）。全画面・全機能を操作できる |
-| フェーズ1 | 未着手 | ローカル環境（React + Spring Boot + Docker の PostgreSQL）で全機能を実装。画像は `backend/uploads/` に保存 |
+| フェーズ1 | 実装中（認証機能のみ完了。ログイン後は仮のホーム画面） | ローカル環境（React + Spring Boot + Docker の PostgreSQL）で全機能を実装。画像は `backend/uploads/` に保存 |
 | フェーズ2 | 未着手 | 画像の保存先をS3に切り替え、Terraformで AWS（EC2・ALB・RDS・S3）にデプロイ |
 
 ## ディレクトリ構成
@@ -116,8 +116,8 @@ sns-timeline/
 ├── .claude/skills/        # Claude Code用のプロジェクト固有スキル（開発サーバー起動・品質レビュー）
 ├── 機能定義書/             # 機能ごとの詳しい仕様（9ファイル）
 ├── mock/                  # HTML/CSS/JavaScriptだけの画面確認用プロトタイプ（実装の本体ではない）
-├── frontend/              # React + Vite製のフロントエンド（フェーズ1で作成予定）
-├── backend/               # Java + Spring Boot製のバックエンドAPI（フェーズ1で作成予定）
+├── frontend/              # React + Vite製のフロントエンド
+├── backend/               # Java + Spring Boot製のバックエンドAPI
 ├── infra/                 # TerraformによるAWS構成（フェーズ2で作成予定）
 ├── 要件定義書.md
 ├── 機能一覧.md
@@ -129,7 +129,7 @@ sns-timeline/
 └── CLAUDE.md
 ```
 
-`frontend/`・`backend/` の中のファイル構成（予定）は [技術スタック](./技術スタック.md#バックエンドの構成予定) を参照。
+`frontend/`・`backend/` の中のファイル構成は [技術スタック](./技術スタック.md#バックエンドの構成) を参照。
 
 ## mock/ について
 
@@ -169,15 +169,23 @@ sns-timeline/
 - 画像は localStorage に保存するため、大きな画像をたくさん投稿すると保存容量（5MB程度）を超え、再読み込みで消えることがある。本番ではS3に保存する（[画像投稿機能](./機能定義書/画像投稿機能.md)）
 - いいね・フォローの通信失敗時の巻き戻し（楽観的更新の失敗）は、通信が無いため再現していない
 
-## ローカルでの動かし方（予定）
-
-> フェーズ1で実装した後に、実際の手順に合わせて更新する。
+## ローカルでの動かし方
 
 ### 必要なもの
 
 - Node.js（フロントエンド）
 - JDK 21（[Eclipse Temurin](https://adoptium.net/) など）
 - Docker Desktop（PostgreSQLをコンテナで動かすため）
+
+### 初回のみ：設定ファイルの作成
+
+秘密情報を含む設定ファイルはGitに含めていないため、雛形（`.example`）をコピーして作る。
+
+| 作るファイル | コピー元 | 書き換える値 |
+|---|---|---|
+| `backend/.env` | `backend/.env.example` | `POSTGRES_PASSWORD`（ローカルDBのパスワード） |
+| `backend/src/main/resources/application-local.properties` | 同じ場所の `.example` | `spring.datasource.password`（上と同じ値）、`app.jwt.secret`（32バイト以上のランダムな文字列） |
+| `frontend/.env` | `frontend/.env.example` | そのままでよい（`VITE_API_BASE_URL=http://localhost:8080`） |
 
 ### backend/ の動かし方
 
@@ -198,9 +206,9 @@ npm install
 npm run dev
 ```
 
-`http://localhost:5173` をブラウザ（Google Chrome推奨）で開き、新規登録画面が表示されれば起動成功。
+`http://localhost:5173` をブラウザ（Google Chrome推奨）で開き、ログイン画面が表示されれば起動成功。「新規登録」からアカウントを作ると、仮のホーム画面（「Hello, 〇〇 さん」とログアウトボタン）が表示される。
 
-その他のコマンド：
+その他のコマンド（バックエンドのテストは `cd backend && ./gradlew.bat test`）：
 
 ```bash
 npm run build     # 本番用ビルド
