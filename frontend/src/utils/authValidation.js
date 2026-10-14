@@ -53,3 +53,11 @@ export function toFieldErrors(apiErrors) {
   }
   return result
 }
+
+/** 指定した項目のエラーを取り除く。消すものが無ければ同じオブジェクトを返す(余計な再描画をしないため) */
+export function omitFieldErrors(errors, fields) {
+  if (!fields.some((field) => field in errors)) return errors
+  const result = { ...errors }
+  for (const field of fields) delete result[field]
+  return result
+}

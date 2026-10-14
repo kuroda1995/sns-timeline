@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth.js'
 import { FormField } from '../components/FormField.jsx'
-import { toFieldErrors, validateSignup } from '../utils/authValidation.js'
+import { omitFieldErrors, toFieldErrors, validateSignup } from '../utils/authValidation.js'
 
 const INITIAL_FORM = { username: '', displayName: '', email: '', password: '', passwordConfirm: '' }
 
@@ -15,7 +15,14 @@ export function SignupPage() {
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    setForm({ ...form, [name]: value })
+    // 直し始めた欄のエラーは消す(チェック自体は送信時に行う)。
+    // パスワードを直したら、確認欄の「一致しません」も古くなるので一緒に消す
+    const fields = name === 'password' ? [name, 'passwordConfirm'] : [name]
+    setFieldErrors((errors) => omitFieldErrors(errors, fields))
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()

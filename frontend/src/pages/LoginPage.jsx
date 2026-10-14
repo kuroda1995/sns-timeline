@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router'
 import { useAuth } from '../auth/useAuth.js'
 import { FormField } from '../components/FormField.jsx'
-import { toFieldErrors, validateLogin } from '../utils/authValidation.js'
+import { omitFieldErrors, toFieldErrors, validateLogin } from '../utils/authValidation.js'
 
 /** SC-01 ログイン(AUTH-02) */
 export function LoginPage() {
@@ -13,7 +13,12 @@ export function LoginPage() {
   const [formError, setFormError] = useState('')
   const [submitting, setSubmitting] = useState(false)
 
-  const handleChange = (e) => setForm({ ...form, [e.target.name]: e.target.value })
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    setForm({ ...form, [name]: value })
+    // 直し始めた欄のエラーは消す(チェック自体は送信時に行う)
+    setFieldErrors((errors) => omitFieldErrors(errors, [name]))
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
