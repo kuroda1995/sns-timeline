@@ -3,13 +3,15 @@ import { Link, useNavigate } from 'react-router'
 import * as postsApi from '../api/postsApi.js'
 import { formatDateTime, formatRelativeTime } from '../utils/dateUtils.js'
 import { Avatar } from './Avatar.jsx'
+import { LikeButton } from './LikeButton.jsx'
 
 /**
  * 投稿カード(要件定義書 6-4)。タイムライン・投稿詳細で共通。
  * 編集・削除ボタンは自分の投稿(post.isMine)にだけ表示する。
  * 本文は React が文字としてそのまま表示するため、`<script>` もHTMLとして解釈されない。
+ * onPostChange(postId, patch) は、いいねなどで投稿の一部が変わったときに呼ばれる。
  */
-export function PostCard({ post, detail = false, onEdit, onDeleted }) {
+export function PostCard({ post, detail = false, onEdit, onDeleted, onPostChange }) {
   const navigate = useNavigate()
   const [deleting, setDeleting] = useState(false)
   const detailPath = `/posts/${post.id}`
@@ -74,11 +76,7 @@ export function PostCard({ post, detail = false, onEdit, onDeleted }) {
           {post.commentCount}
         </Link>
       )}
-      {/* いいね機能(LIKE)を実装するまでは件数の表示のみ */}
-      <span className="action-btn" aria-label={`いいね ${post.likeCount}件`}>
-        <span className="action-btn__icon">{post.likedByMe ? '♥' : '♡'}</span>
-        {post.likeCount}
-      </span>
+      <LikeButton post={post} onChange={onPostChange} />
     </div>
   )
 
