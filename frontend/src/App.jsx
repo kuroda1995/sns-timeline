@@ -1,9 +1,11 @@
 import { Navigate, Route, Routes } from 'react-router'
 import { GuestOnly } from './components/GuestOnly.jsx'
 import { RequireAuth } from './components/RequireAuth.jsx'
-import { HomePage } from './pages/HomePage.jsx'
+import { AppLayout } from './layout/AppLayout.jsx'
 import { LoginPage } from './pages/LoginPage.jsx'
+import { PostDetailPage } from './pages/PostDetailPage.jsx'
 import { SignupPage } from './pages/SignupPage.jsx'
+import { TimelinePage } from './pages/TimelinePage.jsx'
 
 export default function App() {
   return (
@@ -13,7 +15,10 @@ export default function App() {
         <Route path="/signup" element={<SignupPage />} />
       </Route>
       <Route element={<RequireAuth />}>
-        <Route path="/" element={<HomePage />} />
+        <Route element={<AppLayout />}>
+          <Route path="/" element={<TimelinePage />} />
+          <Route path="/posts/:postId" element={<PostDetailPage />} />
+        </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

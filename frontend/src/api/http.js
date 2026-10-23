@@ -50,11 +50,14 @@ export function setUnauthorizedHandler(handler) {
 /**
  * @param {string} path '/api/...' から始まるパス
  * @param {{ method?: string, body?: unknown, auth?: boolean }} options
+ *   body に FormData を渡すと multipart/form-data で送る(それ以外は JSON)
  *   auth=false のAPI(ログイン・新規登録)は、401でもログアウト処理をしない
  */
 export async function request(path, { method = 'GET', body, auth = true } = {}) {
   const headers = {}
-  if (body !== undefined) headers['Content-Type'] = 'application/json'
+  const isForm = body instanceof FormData
+  // FormData の場合、Content-Type(境界文字列つき)はブラウザが付ける
+  if (body !== undefined && !isForm) headers['Content-Type'] = 'application/json'
   const token = tokenStorage.get()
   if (auth && token) headers.Authorization = `Bearer ${token}`
 
@@ -63,7 +66,7 @@ export async function request(path, { method = 'GET', body, auth = true } = {}) 
     res = await fetch(`${BASE_URL}${path}`, {
       method,
       headers,
-      body: body === undefined ? undefined : JSON.stringify(body),
+      body: body === undefined || isForm ? body : JSON.stringify(body),
     })
   } catch {
     throw new ApiError(0, 'サーバーに接続できませんでした。時間をおいて再度お試しください')
