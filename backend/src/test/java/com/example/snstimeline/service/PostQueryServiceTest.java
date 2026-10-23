@@ -1,0 +1,102 @@
+package com.example.snstimeline.service;
+
+import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+
+import com.example.snstimeline.dto.NewPostsResponse;
+import com.example.snstimeline.dto.PageResponse;
+import com.example.snstimeline.dto.PostResponse;
+import com.example.snstimeline.entity.Post;
+import com.example.snstimeline.entity.User;
+import com.example.snstimeline.repository.PostRepository;
+import java.util.List;
+import java.util.stream.LongStream;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.springframework.data.domain.Limit;
+import org.springframework.test.util.ReflectionTestUtils;
+
+class PostQueryServiceTest {
+
+    private static final long ME = 2L;
+
+    private PostRepository postRepository;
+    private PostQueryService postQueryService;
+    private User me;
+
+    @BeforeEach
+    void setUp() {
+        postRepository = mock(PostRepository.class);
+        postQueryService = new PostQueryService(postRepository);
+        me = new User("hanako", "hanako@example.com", "hash", "花子");
+        ReflectionTestUtils.setField(me, "id", ME);
+    }
+
+    /** from から1ずつ小さくなるIDの投稿を count 件作る(新しい順) */
+    private List<Post> postsFrom(long from, int count) {
+        return LongStream.range(0, count).mapToObj(i -> {
+            Post post = new Post(me, "本文" + (from - i));
+            ReflectionTestUtils.setField(post, "id", from - i);
+            return post;
+        }).toList();
+    }
+
+    @Test
+    void timeline_cursorが無ければ最新から取得する() {
+        when(postRepository.findTimeline(eq(ME), anyLong(), eq(Limit.of(21)))).thenReturn(postsFrom(5, 5));
+
+        PageResponse<PostResponse> page = postQueryService.timeline(ME, null);
+
+        verify(postRepository).findTimeline(ME, Long.MAX_VALUE, Limit.of(21));
+        assertThat(page.items()).hasSize(5);
+        assertThat(page.hasNext()).isFalse();
+        assertThat(page.nextCursor()).isNull();
+    }
+
+    @Test
+    void timeline_21件取れたら20件だけ返し最後の投稿IDを次のcursorにする() {
+        when(postRepository.findTimeline(ME, 101L, Limit.of(21))).thenReturn(postsFrom(100, 21));
+
+        PageResponse<PostResponse> page = postQueryService.timeline(ME, 101L);
+
+        assertThat(page.items()).hasSize(20);
+        assertThat(page.items().getFirst().id()).isEqualTo(100L);
+        assertThat(page.hasNext()).isTrue();
+        assertThat(page.nextCursor()).isEqualTo(81L);
+    }
+
+    @Test
+    void timeline_ちょうど20件なら次のページは無い() {
+        when(postRepository.findTimeline(ME, Long.MAX_VALUE, Limit.of(21))).thenReturn(postsFrom(20, 20));
+
+        PageResponse<PostResponse> page = postQueryService.timeline(ME, null);
+
+        assertThat(page.items()).hasSize(20);
+        assertThat(page.hasNext()).isFalse();
+        assertThat(page.nextCursor()).isNull();
+    }
+
+    @Test
+    void newPosts_20件を超えて溜まっていたらhasMoreをtrueにする() {
+        when(postRepository.findTimelineSince(ME, 10L, Limit.of(21))).thenReturn(postsFrom(31, 21));
+
+        NewPostsResponse response = postQueryService.newPosts(ME, 10L);
+
+        assertThat(response.items()).hasSize(20);
+        assertThat(response.hasMore()).isTrue();
+    }
+
+    @Test
+    void newPosts_新着が無ければ空() {
+        when(postRepository.findTimelineSince(ME, 10L, Limit.of(21))).thenReturn(List.of());
+
+        NewPostsResponse response = postQueryService.newPosts(ME, 10L);
+
+        assertThat(response.items()).isEmpty();
+        assertThat(response.hasMore()).isFalse();
+    }
+}
