@@ -39,6 +39,12 @@ export function PostDetailPage() {
   const handleEdit = (post) =>
     openComposer(post, (saved) => setResult({ postId, post: saved, error: null }))
 
+  // いいねなどの変更は、この画面とタイムラインの両方に反映する(戻ったときに表示がずれないように)
+  const handlePostChange = (id, patch) => {
+    setResult((r) => (r?.post?.id === id ? { ...r, post: { ...r.post, ...patch } } : r))
+    timeline.patchPost(id, patch)
+  }
+
   const handleDeleted = (id) => {
     timeline.removePost(id)
     navigate('/', { replace: true })
@@ -59,7 +65,13 @@ export function PostDetailPage() {
   } else {
     body = (
       <>
-        <PostCard post={loaded.post} detail onEdit={handleEdit} onDeleted={handleDeleted} />
+        <PostCard
+          post={loaded.post}
+          detail
+          onEdit={handleEdit}
+          onDeleted={handleDeleted}
+          onPostChange={handlePostChange}
+        />
         <p className="list-status">コメント機能は準備中です</p>
       </>
     )

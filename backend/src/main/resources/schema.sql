@@ -9,5 +9,7 @@ CREATE INDEX IF NOT EXISTS idx_users_created ON users (created_at);
 
 -- タイムライン・プロフィールの投稿一覧を新しい順に取り出す用(設計書 2-2)
 CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts (user_id, id DESC);
+-- 投稿ごとのいいね数を数える用(設計書 2-4)
+CREATE INDEX IF NOT EXISTS idx_likes_post ON likes (post_id);
 -- フォロワー一覧・フォロワー数を取り出す用(設計書 2-6)
 CREATE INDEX IF NOT EXISTS idx_follows_followee ON follows (followee_id);

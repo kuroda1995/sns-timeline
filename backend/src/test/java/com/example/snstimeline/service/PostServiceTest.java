@@ -12,6 +12,7 @@ import com.example.snstimeline.dto.PostResponse;
 import com.example.snstimeline.entity.Post;
 import com.example.snstimeline.entity.User;
 import com.example.snstimeline.exception.ApiException;
+import com.example.snstimeline.repository.LikeRepository;
 import com.example.snstimeline.repository.PostRepository;
 import com.example.snstimeline.repository.UserRepository;
 import java.util.Optional;
@@ -35,7 +36,8 @@ class PostServiceTest {
     void setUp() {
         postRepository = mock(PostRepository.class);
         userRepository = mock(UserRepository.class);
-        postService = new PostService(postRepository, userRepository, new PostQueryService(postRepository));
+        postService = new PostService(postRepository, userRepository,
+                new PostQueryService(postRepository, mock(LikeRepository.class)));
         hanako = user(HANAKO_ID, "hanako");
         when(userRepository.findById(HANAKO_ID)).thenReturn(Optional.of(hanako));
         when(postRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));

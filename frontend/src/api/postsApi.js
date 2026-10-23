@@ -22,6 +22,16 @@ export function deletePost(postId) {
   return request(`/api/posts/${encodeURIComponent(postId)}`, { method: 'DELETE' })
 }
 
+/** L-01 いいねする → { likeCount, likedByMe } */
+export function likePost(postId) {
+  return request(`/api/posts/${encodeURIComponent(postId)}/likes`, { method: 'POST' })
+}
+
+/** L-02 いいね取り消し → { likeCount, likedByMe } */
+export function unlikePost(postId) {
+  return request(`/api/posts/${encodeURIComponent(postId)}/likes`, { method: 'DELETE' })
+}
+
 /** T-01 タイムライン → { items, nextCursor, hasNext }。cursor を省略すると最新から */
 export function getTimeline(cursor) {
   const query = cursor == null ? '' : `?cursor=${encodeURIComponent(cursor)}`

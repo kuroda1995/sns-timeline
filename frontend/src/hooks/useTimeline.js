@@ -147,6 +147,12 @@ export function useTimeline() {
     setState((s) => ({ ...s, posts: replace(s.posts), pending: replace(s.pending) }))
   }, [])
 
+  /** 投稿の一部(いいね数など)だけを書き換える。一覧に無い投稿なら何もしない */
+  const patchPost = useCallback((postId, patch) => {
+    const apply = (posts) => posts.map((p) => (p.id === postId ? { ...p, ...patch } : p))
+    setState((s) => ({ ...s, posts: apply(s.posts), pending: apply(s.pending) }))
+  }, [])
+
   const removePost = useCallback((postId) => {
     const remove = (posts) => posts.filter((p) => p.id !== postId)
     setState((s) => ({ ...s, posts: remove(s.posts), pending: remove(s.pending) }))
@@ -161,6 +167,7 @@ export function useTimeline() {
     flushPending,
     prependPost,
     updatePost,
+    patchPost,
     removePost,
   }
 }

@@ -30,6 +30,7 @@ export function TimelinePage() {
     loadMore,
     checkNew,
     flushPending,
+    patchPost,
     removePost,
   } = timeline
 
@@ -102,7 +103,13 @@ export function TimelinePage() {
 
       {status === 'ready' &&
         posts.map((post) => (
-          <PostCard key={post.id} post={post} onEdit={openComposer} onDeleted={removePost} />
+          <PostCard
+            key={post.id}
+            post={post}
+            onEdit={openComposer}
+            onDeleted={removePost}
+            onPostChange={patchPost}
+          />
         ))}
 
       {status === 'ready' && posts.length > 0 && (
