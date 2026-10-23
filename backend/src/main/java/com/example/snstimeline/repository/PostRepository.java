@@ -14,6 +14,9 @@ public interface PostRepository extends JpaRepository<Post, Long> {
     @Query("select p from Post p join fetch p.user where p.id = :id and p.deletedAt is null")
     Optional<Post> findVisibleById(@Param("id") Long id);
 
+    /** 削除されていない投稿があるか(いいね・コメントの前の存在確認) */
+    boolean existsByIdAndDeletedAtIsNull(Long id);
+
     /**
      * T-01 タイムライン(設計書 3-1)。フォロー中のユーザー＋自分の投稿を、cursor より古いものから新しい順に取得する。
      * 1ページ目は cursor に Long.MAX_VALUE を渡す。
