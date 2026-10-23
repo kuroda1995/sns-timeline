@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router'
 import * as postsApi from '../api/postsApi.js'
+import { CommentSection } from '../components/CommentSection.jsx'
 import { PostCard } from '../components/PostCard.jsx'
 import { useAppLayout } from '../layout/useAppLayout.js'
 
-/** SC-05 投稿詳細(PST-03)。コメント一覧はコメント機能(CMT)で追加する */
+/** SC-05 投稿詳細(PST-03)と、その投稿へのコメント(CMT-01〜04) */
 export function PostDetailPage() {
   const { postId } = useParams()
   const navigate = useNavigate()
@@ -39,7 +40,7 @@ export function PostDetailPage() {
   const handleEdit = (post) =>
     openComposer(post, (saved) => setResult({ postId, post: saved, error: null }))
 
-  // いいねなどの変更は、この画面とタイムラインの両方に反映する(戻ったときに表示がずれないように)
+  // いいね・コメント数の変更は、この画面とタイムラインの両方に反映する(戻ったときに表示がずれないように)
   const handlePostChange = (id, patch) => {
     setResult((r) => (r?.post?.id === id ? { ...r, post: { ...r.post, ...patch } } : r))
     timeline.patchPost(id, patch)
@@ -72,7 +73,11 @@ export function PostDetailPage() {
           onDeleted={handleDeleted}
           onPostChange={handlePostChange}
         />
-        <p className="list-status">コメント機能は準備中です</p>
+        <CommentSection
+          key={postId}
+          postId={postId}
+          onCountChange={(commentCount) => handlePostChange(loaded.post.id, { commentCount })}
+        />
       </>
     )
   }
