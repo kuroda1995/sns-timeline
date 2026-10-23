@@ -14,7 +14,6 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class PostService {
 
-    static final int MAX_CONTENT_LENGTH = 140;
     static final String NOT_FOUND_MESSAGE = "この投稿は削除されたか、存在しません";
 
     private final PostRepository postRepository;
@@ -31,7 +30,7 @@ public class PostService {
     /** P-01 投稿作成 */
     @Transactional
     public PostResponse create(Long me, String content) {
-        String normalized = normalizeContent(content);
+        String normalized = ContentRules.normalize(content);
         User author = userRepository.findById(me)
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "ログインしてください"));
         Post post = postRepository.saveAndFlush(new Post(author, normalized));
@@ -47,7 +46,7 @@ public class PostService {
     /** P-04 投稿編集(本人のみ) */
     @Transactional
     public PostResponse update(Long me, Long postId, String content) {
-        String normalized = normalizeContent(content);
+        String normalized = ContentRules.normalize(content);
         Post post = findOwnPost(me, postId, "この投稿は編集できません");
         post.edit(normalized);
         postRepository.flush();
@@ -72,21 +71,5 @@ public class PostService {
             throw new ApiException(HttpStatus.FORBIDDEN, forbiddenMessage);
         }
         return post;
-    }
-
-    /**
-     * 前後の空白・改行を取り除き、1〜140文字か確認する(処理のルール No.1)。
-     * 絵文字も1文字と数えるため、文字数はコードポイント単位で数える。
-     * multipart/form-data で送るとブラウザが改行を \r\n に変えるため、画面と同じく改行1つを1文字と数えられるよう \n にそろえる。
-     */
-    static String normalizeContent(String content) {
-        String normalized = content == null ? "" : content.replace("\r\n", "\n").replace('\r', '\n').strip();
-        if (normalized.isEmpty()) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "本文を入力してください", "content");
-        }
-        if (normalized.codePointCount(0, normalized.length()) > MAX_CONTENT_LENGTH) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "140文字以内で入力してください", "content");
-        }
-        return normalized;
     }
 }

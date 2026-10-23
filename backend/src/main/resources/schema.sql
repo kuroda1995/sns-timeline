@@ -11,5 +11,7 @@ CREATE INDEX IF NOT EXISTS idx_users_created ON users (created_at);
 CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts (user_id, id DESC);
 -- 投稿ごとのいいね数を数える用(設計書 2-4)
 CREATE INDEX IF NOT EXISTS idx_likes_post ON likes (post_id);
+-- 投稿詳細のコメント一覧(古い順)とコメント数を数える用(設計書 2-5)
+CREATE INDEX IF NOT EXISTS idx_comments_post ON comments (post_id, id);
 -- フォロワー一覧・フォロワー数を取り出す用(設計書 2-6)
 CREATE INDEX IF NOT EXISTS idx_follows_followee ON follows (followee_id);
