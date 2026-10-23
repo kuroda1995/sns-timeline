@@ -15,6 +15,7 @@ import com.example.snstimeline.dto.PageResponse;
 import com.example.snstimeline.dto.PostResponse;
 import com.example.snstimeline.entity.Post;
 import com.example.snstimeline.entity.User;
+import com.example.snstimeline.repository.CommentRepository;
 import com.example.snstimeline.repository.LikeRepository;
 import com.example.snstimeline.repository.PostCount;
 import com.example.snstimeline.repository.PostRepository;
@@ -31,6 +32,7 @@ class PostQueryServiceTest {
 
     private PostRepository postRepository;
     private LikeRepository likeRepository;
+    private CommentRepository commentRepository;
     private PostQueryService postQueryService;
     private User me;
 
@@ -38,7 +40,8 @@ class PostQueryServiceTest {
     void setUp() {
         postRepository = mock(PostRepository.class);
         likeRepository = mock(LikeRepository.class);
-        postQueryService = new PostQueryService(postRepository, likeRepository);
+        commentRepository = mock(CommentRepository.class);
+        postQueryService = new PostQueryService(postRepository, likeRepository, commentRepository);
         me = new User("hanako", "hanako@example.com", "hash", "花子");
         ReflectionTestUtils.setField(me, "id", ME);
     }
@@ -106,7 +109,7 @@ class PostQueryServiceTest {
         assertThat(response.items()).isEmpty();
         assertThat(response.hasMore()).isFalse();
         // 投稿が0件なら集計のSQLは発行しない(空の IN () にしない)
-        verifyNoInteractions(likeRepository);
+        verifyNoInteractions(likeRepository, commentRepository);
     }
 
     private static PostCount count(long postId, long count) {
@@ -124,18 +127,21 @@ class PostQueryServiceTest {
     }
 
     @Test
-    void toResponses_いいね数といいね済みを投稿IDまとめて1回ずつで取得する() {
+    void toResponses_いいね数といいね済みとコメント数を投稿IDまとめて1回ずつで取得する() {
         List<Post> posts = postsFrom(3, 3);
         List<Long> ids = List.of(3L, 2L, 1L);
         when(likeRepository.countByPostIds(ids)).thenReturn(List.of(count(3, 5), count(1, 1)));
         when(likeRepository.findLikedPostIds(ME, ids)).thenReturn(List.of(3L));
+        when(commentRepository.countByPostIds(ids)).thenReturn(List.of(count(2, 4)));
 
         List<PostResponse> responses = postQueryService.toResponses(posts, ME);
 
         assertThat(responses).extracting(PostResponse::likeCount).containsExactly(5L, 0L, 1L);
         assertThat(responses).extracting(PostResponse::likedByMe).containsExactly(true, false, false);
+        assertThat(responses).extracting(PostResponse::commentCount).containsExactly(0L, 4L, 0L);
         // N+1問題の回避: 投稿の件数に関係なく、集計はそれぞれ1回だけ
         verify(likeRepository, times(1)).countByPostIds(any());
         verify(likeRepository, times(1)).findLikedPostIds(anyLong(), any());
+        verify(commentRepository, times(1)).countByPostIds(any());
     }
 }
