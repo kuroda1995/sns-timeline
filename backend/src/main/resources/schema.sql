@@ -6,3 +6,8 @@ CREATE UNIQUE INDEX IF NOT EXISTS uq_users_username_lower ON users (LOWER(userna
 CREATE UNIQUE INDEX IF NOT EXISTS uq_users_email_lower ON users (LOWER(email));
 -- 「新しく参加したユーザー」の表示用
 CREATE INDEX IF NOT EXISTS idx_users_created ON users (created_at);
+
+-- タイムライン・プロフィールの投稿一覧を新しい順に取り出す用(設計書 2-2)
+CREATE INDEX IF NOT EXISTS idx_posts_user_id ON posts (user_id, id DESC);
+-- フォロワー一覧・フォロワー数を取り出す用(設計書 2-6)
+CREATE INDEX IF NOT EXISTS idx_follows_followee ON follows (followee_id);
