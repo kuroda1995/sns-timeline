@@ -29,6 +29,19 @@ export function ProfilePage() {
 
   const loaded = result?.username === username ? result : null
 
+  /**
+   * フォローボタンの状態に合わせてフォロワー数を変える。サーバーの最新値(followerCount)があればそれを使い、
+   * 楽観的更新・元に戻すとき(null)は、フォローの状態が変わった分だけ ±1 する
+   */
+  const handleFollowChange = (followedByMe, followerCount) => {
+    setResult((r) => {
+      if (!r?.profile) return r
+      const p = r.profile
+      const diff = followedByMe === p.followedByMe ? 0 : followedByMe ? 1 : -1
+      return { ...r, profile: { ...p, followedByMe, followerCount: followerCount ?? p.followerCount + diff } }
+    })
+  }
+
   const goBack = () => {
     // このアプリ内から開いた場合は前の画面へ、URLを直接開いた場合はタイムラインへ
     if (window.history.state?.idx > 0) navigate(-1)
@@ -50,7 +63,7 @@ export function ProfilePage() {
     title = loaded.profile.displayName
     body = (
       <>
-        <ProfileHeader profile={loaded.profile} />
+        <ProfileHeader profile={loaded.profile} onFollowChange={handleFollowChange} />
         {/* /users/Taro と /users/taro は同じユーザーなので、正式なユーザー名で一覧を持つ */}
         <UserPostList key={loaded.profile.username} username={loaded.profile.username} />
       </>

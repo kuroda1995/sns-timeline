@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router'
 import { GuestOnly } from './components/GuestOnly.jsx'
 import { RequireAuth } from './components/RequireAuth.jsx'
 import { AppLayout } from './layout/AppLayout.jsx'
+import { FollowListPage } from './pages/FollowListPage.jsx'
 import { LoginPage } from './pages/LoginPage.jsx'
 import { PostDetailPage } from './pages/PostDetailPage.jsx'
 import { ProfileEditPage } from './pages/ProfileEditPage.jsx'
@@ -21,6 +22,8 @@ export default function App() {
           <Route path="/" element={<TimelinePage />} />
           <Route path="/posts/:postId" element={<PostDetailPage />} />
           <Route path="/users/:username" element={<ProfilePage />} />
+          <Route path="/users/:username/following" element={<FollowListPage kind="following" />} />
+          <Route path="/users/:username/followers" element={<FollowListPage kind="followers" />} />
           <Route path="/settings/profile" element={<ProfileEditPage />} />
         </Route>
       </Route>
