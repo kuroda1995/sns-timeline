@@ -7,6 +7,7 @@ import { LoginPage } from './pages/LoginPage.jsx'
 import { PostDetailPage } from './pages/PostDetailPage.jsx'
 import { ProfileEditPage } from './pages/ProfileEditPage.jsx'
 import { ProfilePage } from './pages/ProfilePage.jsx'
+import { SearchPage } from './pages/SearchPage.jsx'
 import { SignupPage } from './pages/SignupPage.jsx'
 import { TimelinePage } from './pages/TimelinePage.jsx'
 
@@ -21,6 +22,7 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<TimelinePage />} />
           <Route path="/posts/:postId" element={<PostDetailPage />} />
+          <Route path="/search" element={<SearchPage />} />
           <Route path="/users/:username" element={<ProfilePage />} />
           <Route path="/users/:username/following" element={<FollowListPage kind="following" />} />
           <Route path="/users/:username/followers" element={<FollowListPage kind="followers" />} />

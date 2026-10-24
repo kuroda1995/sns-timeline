@@ -1,5 +1,15 @@
 import { request } from './http.js'
 
+/** U-01 ユーザー検索 → { items, page, hasNext }。q の先頭が @ ならユーザー名だけを検索する。page は0始まり */
+export function searchUsers(q, page = 0) {
+  return request(`/api/users/search?q=${encodeURIComponent(q)}&page=${page}`)
+}
+
+/** U-02 新しく参加したユーザー → { items } */
+export function getNewUsers() {
+  return request('/api/users/new')
+}
+
 /** U-03 プロフィール → Profile */
 export function getProfile(username) {
   return request(`/api/users/${encodeURIComponent(username)}`)

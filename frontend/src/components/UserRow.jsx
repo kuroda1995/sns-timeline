@@ -4,8 +4,8 @@ import { UserLink } from './UserLink.jsx'
 
 /**
  * ユーザー1行(アイコン・表示名・@ユーザー名・自己紹介の1行目・フォローボタン)。
- * フォロー中／フォロワー一覧で使い、ユーザー検索の結果でも使う予定。
- * フォローボタンは「ログイン中の自分が」その人をフォローしているかを表す。自分自身の行には出さない。
+ * フォロー中／フォロワー一覧・ユーザー検索の結果・新しく参加したユーザーで使う。
+ * フォローボタンは「ログイン中の自分が」その人をフォローしているかを表す。自分自身の行にはボタンの代わりに「あなた」と表示する。
  *
  * onFollowChange(userId, followedByMe) はフォローの状態が変わったときに呼ばれる。
  */
@@ -26,7 +26,9 @@ export function UserRow({ user, onFollowChange }) {
               @{user.username}
             </UserLink>
           </div>
-          {!user.isMe && (
+          {user.isMe ? (
+            <span className="user-row__me">あなた</span>
+          ) : (
             <FollowButton
               username={user.username}
               followedByMe={user.followedByMe}
