@@ -4,6 +4,9 @@ import com.example.snstimeline.dto.PageResponse;
 import com.example.snstimeline.dto.PostResponse;
 import com.example.snstimeline.dto.ProfileResponse;
 import com.example.snstimeline.dto.UpdateProfileRequest;
+import com.example.snstimeline.dto.UserListResponse;
+import com.example.snstimeline.dto.UserSearchResponse;
+import com.example.snstimeline.service.UserSearchService;
 import com.example.snstimeline.service.UserService;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -16,7 +19,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 /**
- * ユーザー(プロフィール)のAPI。/api/users/me の me はユーザー名に使えない予約語のため、
+ * ユーザー(検索・プロフィール)のAPI。/api/users/search・new・me はユーザー名に使えない予約語のため、
  * /api/users/{username} と区別できる(設計書 4-2)。
  */
 @RestController
@@ -24,9 +27,24 @@ import org.springframework.web.bind.annotation.RestController;
 public class UserController {
 
     private final UserService userService;
+    private final UserSearchService userSearchService;
 
-    public UserController(UserService userService) {
+    public UserController(UserService userService, UserSearchService userSearchService) {
         this.userService = userService;
+        this.userSearchService = userSearchService;
+    }
+
+    /** U-01 ユーザー検索。q の先頭が @ ならユーザー名だけを検索する。page は0始まり */
+    @GetMapping("/search")
+    public UserSearchResponse search(@AuthenticationPrincipal Jwt jwt,
+            @RequestParam(required = false) String q, @RequestParam(defaultValue = "0") int page) {
+        return userSearchService.search(userId(jwt), q, page);
+    }
+
+    /** U-02 新しく参加したユーザー */
+    @GetMapping("/new")
+    public UserListResponse newUsers(@AuthenticationPrincipal Jwt jwt) {
+        return userSearchService.newUsers(userId(jwt));
     }
 
     /** U-03 プロフィール */

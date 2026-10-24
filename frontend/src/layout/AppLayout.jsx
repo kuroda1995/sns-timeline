@@ -10,7 +10,6 @@ import { AppLayoutContext } from './AppLayoutContext.js'
 /**
  * ログイン後の共通レイアウト(要件定義書 6-3)。左にサイドメニュー、中央に各画面を表示する。
  * 投稿作成モーダル(SC-04)とタイムラインの状態もここで持ち、どの画面からでも使えるようにする。
- * 検索のメニューは、ユーザー検索機能を実装するときに追加する。
  */
 export function AppLayout() {
   const { user, logout } = useAuth()
@@ -68,6 +67,10 @@ export function AppLayout() {
               <span className="nav-link__icon" aria-hidden="true">🏠</span>
               <span className="nav-link__text">ホーム</span>
             </NavLink>
+            <NavLink to="/search" className={({ isActive }) => `nav-link${isActive ? ' is-active' : ''}`}>
+              <span className="nav-link__icon" aria-hidden="true">🔍</span>
+              <span className="nav-link__text">検索</span>
+            </NavLink>
             <NavLink
               to={myProfilePath}
               className={({ isActive }) => `nav-link${isActive ? ' is-active' : ''}`}
@@ -109,6 +112,9 @@ export function AppLayout() {
             onClick={handleHomeClick}
           >
             🏠
+          </NavLink>
+          <NavLink to="/search" className={({ isActive }) => (isActive ? 'is-active' : undefined)} aria-label="検索">
+            🔍
           </NavLink>
           <NavLink
             to={myProfilePath}
