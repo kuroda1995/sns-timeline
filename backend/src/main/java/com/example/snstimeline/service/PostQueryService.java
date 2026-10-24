@@ -110,11 +110,11 @@ public class PostQueryService {
         return counts.stream().collect(Collectors.toMap(PostCount::getPostId, PostCount::getCount));
     }
 
-    private static PostResponse toResponse(Post post, Long me, List<ImageResponse> images, long likeCount,
+    private PostResponse toResponse(Post post, Long me, List<ImageResponse> images, long likeCount,
             long commentCount, boolean likedByMe) {
         return new PostResponse(
                 post.getId(),
-                AuthorResponse.of(post.getUser()),
+                AuthorResponse.of(post.getUser(), imageStorage),
                 post.getContent(),
                 images,
                 likeCount,

@@ -59,6 +59,16 @@ public class User {
         this.displayName = displayName;
     }
 
+    /**
+     * U-06 アイコン画像の変更。新しい保存キーに差し替え、元の保存キー(未設定なら null)を返す。
+     * 古い画像ファイルの削除は UserService で行う
+     */
+    public String changeAvatar(String avatarKey) {
+        String previous = this.avatarKey;
+        this.avatarKey = avatarKey;
+        return previous;
+    }
+
     /** U-05 プロフィール更新。入力チェックは UserService で行う */
     public void updateProfile(String displayName, String bio) {
         this.displayName = displayName;

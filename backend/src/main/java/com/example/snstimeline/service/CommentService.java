@@ -11,6 +11,7 @@ import com.example.snstimeline.exception.ApiException;
 import com.example.snstimeline.repository.CommentRepository;
 import com.example.snstimeline.repository.PostRepository;
 import com.example.snstimeline.repository.UserRepository;
+import com.example.snstimeline.service.storage.ImageStorage;
 import java.util.List;
 import org.springframework.data.domain.Limit;
 import org.springframework.http.HttpStatus;
@@ -27,12 +28,14 @@ public class CommentService {
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
     private final UserRepository userRepository;
+    private final ImageStorage imageStorage;
 
     public CommentService(CommentRepository commentRepository, PostRepository postRepository,
-            UserRepository userRepository) {
+            UserRepository userRepository, ImageStorage imageStorage) {
         this.commentRepository = commentRepository;
         this.postRepository = postRepository;
         this.userRepository = userRepository;
+        this.imageStorage = imageStorage;
     }
 
     /** C-01 コメント一覧。古い順に20件ずつ。cursor が null なら最初から取得する */
@@ -82,10 +85,10 @@ public class CommentService {
         }
     }
 
-    private static CommentResponse toResponse(Comment comment, Long me) {
+    private CommentResponse toResponse(Comment comment, Long me) {
         return new CommentResponse(
                 comment.getId(),
-                AuthorResponse.of(comment.getUser()),
+                AuthorResponse.of(comment.getUser(), imageStorage),
                 comment.getContent(),
                 comment.isWrittenBy(me),
                 comment.getCreatedAt());
