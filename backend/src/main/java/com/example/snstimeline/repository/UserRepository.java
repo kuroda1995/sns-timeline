@@ -16,4 +16,8 @@ public interface UserRepository extends JpaRepository<User, Long> {
     /** schema.sql の LOWER(username) インデックスと同じ条件で、大文字小文字を区別せずに重複を調べる */
     @Query("select count(u) > 0 from User u where lower(u.username) = lower(:username)")
     boolean existsByUsernameIgnoreCase(@Param("username") String username);
+
+    /** プロフィールのURL(/users/Taro と /users/taro)は同じユーザーを指すため、大文字小文字を区別せずに探す */
+    @Query("select u from User u where lower(u.username) = lower(:username)")
+    Optional<User> findByUsernameIgnoreCase(@Param("username") String username);
 }

@@ -91,6 +91,17 @@ class PostQueryServiceTest {
     }
 
     @Test
+    void userPosts_そのユーザーの投稿をタイムラインと同じ形で返す() {
+        when(postRepository.findByAuthor(3L, Long.MAX_VALUE, Limit.of(21))).thenReturn(postsFrom(30, 21));
+
+        PageResponse<PostResponse> page = postQueryService.userPosts(ME, 3L, null);
+
+        assertThat(page.items()).hasSize(20);
+        assertThat(page.hasNext()).isTrue();
+        assertThat(page.nextCursor()).isEqualTo(11L);
+    }
+
+    @Test
     void newPosts_20件を超えて溜まっていたらhasMoreをtrueにする() {
         when(postRepository.findTimelineSince(ME, 10L, Limit.of(21))).thenReturn(postsFrom(31, 21));
 
