@@ -4,11 +4,14 @@ import com.example.snstimeline.dto.NewPostsResponse;
 import com.example.snstimeline.dto.PageResponse;
 import com.example.snstimeline.dto.PostResponse;
 import com.example.snstimeline.dto.PostResponse.AuthorResponse;
+import com.example.snstimeline.dto.PostResponse.ImageResponse;
 import com.example.snstimeline.entity.Post;
 import com.example.snstimeline.repository.CommentRepository;
 import com.example.snstimeline.repository.LikeRepository;
 import com.example.snstimeline.repository.PostCount;
+import com.example.snstimeline.repository.PostImageRepository;
 import com.example.snstimeline.repository.PostRepository;
+import com.example.snstimeline.service.storage.ImageStorage;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -20,7 +23,6 @@ import org.springframework.transaction.annotation.Transactional;
 
 /**
  * 投稿の一覧取得と、画面に返す形(PostResponse)への組み立て。タイムライン・投稿詳細で共通。
- * 画像は画像投稿機能の実装時に、いいね数・コメント数と同じく投稿IDをまとめて渡して取得する(設計書 3-2)。
  */
 @Service
 public class PostQueryService {
@@ -30,12 +32,16 @@ public class PostQueryService {
     private final PostRepository postRepository;
     private final LikeRepository likeRepository;
     private final CommentRepository commentRepository;
+    private final PostImageRepository postImageRepository;
+    private final ImageStorage imageStorage;
 
     public PostQueryService(PostRepository postRepository, LikeRepository likeRepository,
-            CommentRepository commentRepository) {
+            CommentRepository commentRepository, PostImageRepository postImageRepository, ImageStorage imageStorage) {
         this.postRepository = postRepository;
         this.likeRepository = likeRepository;
         this.commentRepository = commentRepository;
+        this.postImageRepository = postImageRepository;
+        this.imageStorage = imageStorage;
     }
 
     /** T-01 タイムライン。cursor が null なら最新から取得する */
@@ -71,7 +77,7 @@ public class PostQueryService {
     }
 
     /**
-     * 投稿の一覧を画面に返す形にする。いいね数・いいね済み・コメント数は、投稿IDをまとめて渡して1回ずつで取得する
+     * 投稿の一覧を画面に返す形にする。いいね数・いいね済み・コメント数・画像は、投稿IDをまとめて渡して1回ずつで取得する
      * (N+1問題の回避、設計書 3-2・3-4)。投稿者は取得クエリの join fetch で取得済み。
      */
     public List<PostResponse> toResponses(List<Post> posts, Long me) {
@@ -82,8 +88,14 @@ public class PostQueryService {
         Map<Long, Long> likeCounts = toMap(likeRepository.countByPostIds(postIds));
         Set<Long> likedPostIds = new HashSet<>(likeRepository.findLikedPostIds(me, postIds));
         Map<Long, Long> commentCounts = toMap(commentRepository.countByPostIds(postIds));
+        // 取得クエリで表示順に並べてあるので、投稿IDごとに分けるだけでよい
+        Map<Long, List<ImageResponse>> images = postImageRepository.findByPostIds(postIds).stream()
+                .collect(Collectors.groupingBy(i -> i.getPost().getId(),
+                        Collectors.mapping(i -> new ImageResponse(imageStorage.toUrl(i.getImageKey()), i.getSortOrder()),
+                                Collectors.toList())));
         return posts.stream()
                 .map(post -> toResponse(post, me,
+                        images.getOrDefault(post.getId(), List.of()),
                         likeCounts.getOrDefault(post.getId(), 0L),
                         commentCounts.getOrDefault(post.getId(), 0L),
                         likedPostIds.contains(post.getId())))
@@ -98,12 +110,13 @@ public class PostQueryService {
         return counts.stream().collect(Collectors.toMap(PostCount::getPostId, PostCount::getCount));
     }
 
-    private static PostResponse toResponse(Post post, Long me, long likeCount, long commentCount, boolean likedByMe) {
+    private static PostResponse toResponse(Post post, Long me, List<ImageResponse> images, long likeCount,
+            long commentCount, boolean likedByMe) {
         return new PostResponse(
                 post.getId(),
                 AuthorResponse.of(post.getUser()),
                 post.getContent(),
-                List.of(),
+                images,
                 likeCount,
                 commentCount,
                 likedByMe,

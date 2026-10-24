@@ -17,10 +17,16 @@ final class ContentRules {
      * multipart/form-data で送るとブラウザが改行を \r\n に変えるため、画面と同じく改行1つを1文字と数えられるよう \n にそろえる。
      */
     static String normalize(String content) {
-        String normalized = content == null ? "" : content.replace("\r\n", "\n").replace('\r', '\n').strip();
+        String normalized = normalizeAllowingEmpty(content);
         if (normalized.isEmpty()) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "本文を入力してください", "content");
         }
+        return normalized;
+    }
+
+    /** normalize と同じだが、空(0文字)も受け付ける。画像付きの投稿は本文が無くてもよいため(画像投稿機能 IMG-01) */
+    static String normalizeAllowingEmpty(String content) {
+        String normalized = content == null ? "" : content.replace("\r\n", "\n").replace('\r', '\n').strip();
         if (normalized.codePointCount(0, normalized.length()) > MAX_LENGTH) {
             throw new ApiException(HttpStatus.BAD_REQUEST, "140文字以内で入力してください", "content");
         }

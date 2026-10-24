@@ -19,7 +19,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * どのAPIにログインが必要かの設定。
- * 新規登録・ログイン・ヘルスチェック以外は、有効なJWT(Authorization: Bearer)が必要。
+ * 新規登録・ログイン・ヘルスチェック・画像ファイル(/uploads/**)以外は、有効なJWT(Authorization: Bearer)が必要。
  */
 @Configuration
 public class SecurityConfig {
@@ -45,6 +45,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers(HttpMethod.POST, "/api/auth/signup", "/api/auth/login").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
+                        // 画像は <img> タグで表示するため Authorization ヘッダーを付けられない。
+                        // ファイル名は推測できない UUID にしている(フェーズ2では S3 の署名付きURLに切り替える)
+                        .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2

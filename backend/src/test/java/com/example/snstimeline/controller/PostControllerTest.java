@@ -1,5 +1,6 @@
 package com.example.snstimeline.controller;
 
+import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -31,6 +32,9 @@ import com.example.snstimeline.service.PostService;
 import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
+import org.springframework.mock.web.MockMultipartFile;
+import org.springframework.web.multipart.MultipartFile;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
@@ -70,7 +74,7 @@ class PostControllerTest {
 
     @Test
     void create_multipartで本文を受け取り201で投稿を返す() throws Exception {
-        when(postService.create(2L, "こんにちは")).thenReturn(POST);
+        when(postService.create(2L, "こんにちは", null)).thenReturn(POST);
 
         mockMvc.perform(multipart("/api/posts").param("content", "こんにちは")
                         .header("Authorization", bearer(2L)))
@@ -87,7 +91,7 @@ class PostControllerTest {
 
     @Test
     void create_入力チェックエラーは400で項目のエラーを返す() throws Exception {
-        when(postService.create(eq(2L), any()))
+        when(postService.create(eq(2L), any(), any()))
                 .thenThrow(new ApiException(HttpStatus.BAD_REQUEST, "140文字以内で入力してください", "content"));
 
         mockMvc.perform(multipart("/api/posts").param("content", "長い本文")
@@ -95,6 +99,32 @@ class PostControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.errors[0].field").value("content"))
                 .andExpect(jsonPath("$.errors[0].message").value("140文字以内で入力してください"));
+    }
+
+    @Test
+    @SuppressWarnings("unchecked")
+    void create_同じ名前imagesで送った画像を送った順に受け取る() throws Exception {
+        when(postService.create(eq(2L), eq("写真"), any())).thenReturn(POST);
+        MockMultipartFile first = new MockMultipartFile("images", "b.png", "image/png", new byte[] {1});
+        MockMultipartFile second = new MockMultipartFile("images", "a.png", "image/png", new byte[] {2});
+
+        mockMvc.perform(multipart("/api/posts").file(first).file(second).param("content", "写真")
+                        .header("Authorization", bearer(2L)))
+                .andExpect(status().isCreated());
+
+        ArgumentCaptor<List<MultipartFile>> captor = ArgumentCaptor.forClass(List.class);
+        verify(postService).create(eq(2L), eq("写真"), captor.capture());
+        assertThat(captor.getValue()).extracting(MultipartFile::getOriginalFilename).containsExactly("b.png", "a.png");
+    }
+
+    @Test
+    void create_画像のサイズ超過は413() throws Exception {
+        when(postService.create(eq(2L), any(), any()))
+                .thenThrow(new ApiException(HttpStatus.PAYLOAD_TOO_LARGE, "5MB以下の画像を選んでください", "images"));
+
+        mockMvc.perform(multipart("/api/posts").file(new MockMultipartFile("images", "big.png", "image/png", new byte[] {1}))
+                        .header("Authorization", bearer(2L)))
+                .andExpect(status().isPayloadTooLarge());
     }
 
     @Test
