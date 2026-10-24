@@ -1,15 +1,16 @@
 import { useCallback, useState } from 'react'
-import { NavLink, Outlet, useLocation, useNavigate } from 'react-router'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router'
 import { useAuth } from '../auth/useAuth.js'
 import { Avatar } from '../components/Avatar.jsx'
 import { PostComposerModal } from '../components/PostComposerModal.jsx'
+import { profilePath } from '../utils/paths.js'
 import { useTimeline } from '../hooks/useTimeline.js'
 import { AppLayoutContext } from './AppLayoutContext.js'
 
 /**
  * ログイン後の共通レイアウト(要件定義書 6-3)。左にサイドメニュー、中央に各画面を表示する。
  * 投稿作成モーダル(SC-04)とタイムラインの状態もここで持ち、どの画面からでも使えるようにする。
- * 検索・プロフィールのメニューは、それぞれの画面を実装するときに追加する。
+ * 検索のメニューは、ユーザー検索機能を実装するときに追加する。
  */
 export function AppLayout() {
   const { user, logout } = useAuth()
@@ -44,6 +45,8 @@ export function AppLayout() {
     window.scrollTo({ top: 0 })
   }
 
+  const myProfilePath = profilePath(user.username)
+
   const handleLogout = () => {
     // 確認ダイアログは出さない(認証機能.md「ログアウト」)
     logout()
@@ -65,6 +68,13 @@ export function AppLayout() {
               <span className="nav-link__icon" aria-hidden="true">🏠</span>
               <span className="nav-link__text">ホーム</span>
             </NavLink>
+            <NavLink
+              to={myProfilePath}
+              className={({ isActive }) => `nav-link${isActive ? ' is-active' : ''}`}
+            >
+              <span className="nav-link__icon" aria-hidden="true">👤</span>
+              <span className="nav-link__text">プロフィール</span>
+            </NavLink>
           </nav>
           <div className="sidebar__post">
             <button type="button" className="btn btn--primary btn--large" onClick={() => openComposer()}>
@@ -72,13 +82,13 @@ export function AppLayout() {
             </button>
           </div>
           <div className="sidebar__me">
-            <div className="sidebar__me-link">
+            <Link to={myProfilePath} className="sidebar__me-link">
               <Avatar user={user} />
               <div className="sidebar__me-text">
                 <div className="sidebar__me-name">{user.displayName}</div>
                 <div className="sidebar__me-user">@{user.username}</div>
               </div>
-            </div>
+            </Link>
             <button type="button" className="btn btn--outline btn--block" onClick={handleLogout}>
               ログアウト
             </button>
@@ -99,6 +109,13 @@ export function AppLayout() {
             onClick={handleHomeClick}
           >
             🏠
+          </NavLink>
+          <NavLink
+            to={myProfilePath}
+            className={({ isActive }) => (isActive ? 'is-active' : undefined)}
+            aria-label="プロフィール"
+          >
+            👤
           </NavLink>
           <button type="button" aria-label="ログアウト" onClick={handleLogout}>
             🚪

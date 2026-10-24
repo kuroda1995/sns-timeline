@@ -69,6 +69,16 @@ export function useTimeline() {
     }
   }, [])
 
+  /**
+   * 一覧を捨てて、次にタイムラインを開いたときに読み込み直す(TimelinePage は status が idle なら読み込む)。
+   * 表示名を変えたときなど、読み込み済みの投稿の内容が古くなったときに使う。
+   */
+  const invalidate = useCallback(() => {
+    generationRef.current++
+    loadingMoreRef.current = false
+    setState(INITIAL_STATE)
+  }, [])
+
   /** TL-02 次の20件 */
   const loadMore = useCallback(async () => {
     const { status, hasNext, nextCursor } = stateRef.current
@@ -162,6 +172,7 @@ export function useTimeline() {
     ...state,
     scrollYRef,
     reload,
+    invalidate,
     loadMore,
     checkNew,
     flushPending,

@@ -88,9 +88,14 @@ export function AuthProvider({ children }) {
     }
   }, [logout])
 
+  /** プロフィールを更新したときに、サイドメニューなどに出ている自分の情報も書き換える */
+  const updateUser = useCallback((patch) => {
+    setUser((current) => (current ? { ...current, ...patch } : current))
+  }, [])
+
   const value = useMemo(
-    () => ({ user, status, login, signup, logout }),
-    [user, status, login, signup, logout],
+    () => ({ user, status, login, signup, logout, updateUser }),
+    [user, status, login, signup, logout, updateUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
