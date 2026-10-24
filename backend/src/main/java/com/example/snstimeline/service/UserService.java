@@ -1,5 +1,6 @@
 package com.example.snstimeline.service;
 
+import com.example.snstimeline.dto.AvatarResponse;
 import com.example.snstimeline.dto.PageResponse;
 import com.example.snstimeline.dto.PostResponse;
 import com.example.snstimeline.dto.ProfileResponse;
@@ -8,9 +9,15 @@ import com.example.snstimeline.entity.User;
 import com.example.snstimeline.exception.ApiException;
 import com.example.snstimeline.repository.FollowRepository;
 import com.example.snstimeline.repository.UserRepository;
+import com.example.snstimeline.service.storage.ImageStorage;
+import com.example.snstimeline.service.storage.ImageValidator;
+import com.example.snstimeline.service.storage.ImageValidator.ValidatedImage;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
+import org.springframework.web.multipart.MultipartFile;
 
 /** プロフィールの表示・更新(プロフィール機能 USER-01・02) */
 @Service
@@ -23,12 +30,16 @@ public class UserService {
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
     private final PostQueryService postQueryService;
+    private final ImageValidator imageValidator;
+    private final ImageStorage imageStorage;
 
     public UserService(UserRepository userRepository, FollowRepository followRepository,
-            PostQueryService postQueryService) {
+            PostQueryService postQueryService, ImageValidator imageValidator, ImageStorage imageStorage) {
         this.userRepository = userRepository;
         this.followRepository = followRepository;
         this.postQueryService = postQueryService;
+        this.imageValidator = imageValidator;
+        this.imageStorage = imageStorage;
     }
 
     /** U-03 プロフィール */
@@ -58,6 +69,48 @@ public class UserService {
         return toProfile(user, me);
     }
 
+    /**
+     * U-06 アイコン画像の変更(ログイン中のユーザー自身のみ)。形式・サイズのチェックは投稿画像と同じ。
+     * 新しい画像を保存してからDBの保存キーを差し替え、DBへの保存が終わってから古い画像ファイルを削除する
+     * (処理のルール No.3)。DBへの保存に失敗したら、新しく保存した画像を削除する。
+     */
+    @Transactional
+    public AvatarResponse changeAvatar(Long me, MultipartFile avatar) {
+        if (avatar == null || avatar.isEmpty()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "画像を選んでください", "avatar");
+        }
+        ValidatedImage image = imageValidator.validate(avatar, "avatar");
+        User user = userRepository.findById(me)
+                .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "ログインしてください"));
+        String newKey = imageStorage.save(image.content(), "avatars", image.type().extension());
+        String oldKey;
+        try {
+            oldKey = user.changeAvatar(newKey);
+            userRepository.flush();
+        } catch (RuntimeException e) {
+            imageStorage.delete(newKey);
+            throw e;
+        }
+        if (oldKey != null) {
+            afterCommit(() -> imageStorage.delete(oldKey));
+        }
+        return new AvatarResponse(imageStorage.toUrl(newKey));
+    }
+
+    /** トランザクションが確定してから実行する(途中で取り消されたら、古い画像はまだ使われているので消さない) */
+    private static void afterCommit(Runnable action) {
+        if (TransactionSynchronizationManager.isSynchronizationActive()) {
+            TransactionSynchronizationManager.registerSynchronization(new TransactionSynchronization() {
+                @Override
+                public void afterCommit() {
+                    action.run();
+                }
+            });
+        } else {
+            action.run();
+        }
+    }
+
     private User findByUsername(String username) {
         return userRepository.findByUsernameIgnoreCase(username)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, NOT_FOUND_MESSAGE));
@@ -69,8 +122,7 @@ public class UserService {
                 user.getId(),
                 user.getUsername(),
                 user.getDisplayName(),
-                // avatarUrl は画像保存(ImageStorage)の実装時に avatar_key から組み立てる
-                null,
+                imageStorage.toUrl(user.getAvatarKey()),
                 user.getBio(),
                 followRepository.countByFollowerId(user.getId()),
                 followRepository.countByFolloweeId(user.getId()),

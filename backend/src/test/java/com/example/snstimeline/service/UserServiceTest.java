@@ -2,12 +2,17 @@ package com.example.snstimeline.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.example.snstimeline.dto.AvatarResponse;
 import com.example.snstimeline.dto.PageResponse;
 import com.example.snstimeline.dto.ProfileResponse;
 import com.example.snstimeline.dto.UpdateProfileRequest;
@@ -15,11 +20,15 @@ import com.example.snstimeline.entity.User;
 import com.example.snstimeline.exception.ApiException;
 import com.example.snstimeline.repository.FollowRepository;
 import com.example.snstimeline.repository.UserRepository;
+import com.example.snstimeline.service.storage.ImageStorage;
+import com.example.snstimeline.service.storage.ImageValidator;
 import java.util.List;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 
 class UserServiceTest {
@@ -30,6 +39,7 @@ class UserServiceTest {
     private UserRepository userRepository;
     private FollowRepository followRepository;
     private PostQueryService postQueryService;
+    private ImageStorage imageStorage;
     private UserService userService;
     private User hanako;
     private User taro;
@@ -39,7 +49,10 @@ class UserServiceTest {
         userRepository = mock(UserRepository.class);
         followRepository = mock(FollowRepository.class);
         postQueryService = mock(PostQueryService.class);
-        userService = new UserService(userRepository, followRepository, postQueryService);
+        imageStorage = mock(ImageStorage.class);
+        when(imageStorage.save(any(), eq("avatars"), anyString())).thenAnswer(inv -> "avatars/new." + inv.getArgument(2));
+        when(imageStorage.toUrl(anyString())).thenAnswer(inv -> "http://localhost:8080/uploads/" + inv.getArgument(0));
+        userService = new UserService(userRepository, followRepository, postQueryService, new ImageValidator(), imageStorage);
         hanako = user(HANAKO_ID, "hanako", "花子");
         taro = user(TARO_ID, "taro", "太郎");
         when(userRepository.findById(HANAKO_ID)).thenReturn(Optional.of(hanako));
@@ -51,6 +64,60 @@ class UserServiceTest {
         User user = new User(username, username + "@example.com", "hash", displayName);
         ReflectionTestUtils.setField(user, "id", id);
         return user;
+    }
+
+    /** 先頭のバイト列が JPEG の画像ファイル */
+    private static MockMultipartFile jpeg() {
+        return new MockMultipartFile("avatar", "me.jpg", "image/jpeg", new byte[] {(byte) 0xFF, (byte) 0xD8, (byte) 0xFF, 0});
+    }
+
+    @Test
+    void changeAvatar_avatarsに保存して保存キーを差し替えURLを返す_アイコンが無かったら何も削除しない() {
+        AvatarResponse response = userService.changeAvatar(HANAKO_ID, jpeg());
+
+        verify(imageStorage).save(any(), eq("avatars"), eq("jpg"));
+        assertThat(hanako.getAvatarKey()).isEqualTo("avatars/new.jpg");
+        assertThat(response.avatarUrl()).isEqualTo("http://localhost:8080/uploads/avatars/new.jpg");
+        verify(imageStorage, never()).delete(anyString());
+    }
+
+    @Test
+    void changeAvatar_古いアイコンの画像ファイルを削除する() {
+        hanako.changeAvatar("avatars/old.png");
+
+        userService.changeAvatar(HANAKO_ID, jpeg());
+
+        verify(imageStorage).delete("avatars/old.png");
+        verify(imageStorage, never()).delete("avatars/new.jpg");
+    }
+
+    @Test
+    void changeAvatar_DBへの保存に失敗したら新しい画像を削除し古い画像は残す() {
+        hanako.changeAvatar("avatars/old.png");
+        doThrow(new DataIntegrityViolationException("失敗")).when(userRepository).flush();
+
+        assertThatThrownBy(() -> userService.changeAvatar(HANAKO_ID, jpeg()))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        verify(imageStorage).delete("avatars/new.jpg");
+        verify(imageStorage, never()).delete("avatars/old.png");
+    }
+
+    @Test
+    void changeAvatar_画像以外や未選択は400で何も保存しない() {
+        MockMultipartFile text = new MockMultipartFile("avatar", "me.jpg", "image/jpeg", "hello".getBytes());
+
+        assertBadField(() -> userService.changeAvatar(HANAKO_ID, text), "avatar", "jpg・png・gif・webp の画像を選んでください");
+        assertBadField(() -> userService.changeAvatar(HANAKO_ID, null), "avatar", "画像を選んでください");
+        verify(imageStorage, never()).save(any(), anyString(), anyString());
+        assertThat(hanako.getAvatarKey()).isNull();
+    }
+
+    @Test
+    void profile_アイコンがあれば保存キーからURLを組み立てる() {
+        taro.changeAvatar("avatars/taro.png");
+
+        assertThat(userService.profile(HANAKO_ID, "taro").avatarUrl())
+                .isEqualTo("http://localhost:8080/uploads/avatars/taro.png");
     }
 
     private static void assertBadField(Runnable action, String field, String message) {

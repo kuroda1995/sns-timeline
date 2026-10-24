@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.example.snstimeline.service.storage.ImageStorage;
 import com.example.snstimeline.dto.FollowResponse;
 import com.example.snstimeline.dto.PageResponse;
 import com.example.snstimeline.dto.UserSummary;
@@ -43,7 +44,7 @@ class FollowServiceTest {
     void setUp() {
         followRepository = mock(FollowRepository.class);
         userRepository = mock(UserRepository.class);
-        followService = new FollowService(followRepository, userRepository);
+        followService = new FollowService(followRepository, userRepository, mock(ImageStorage.class));
         hanako = user(HANAKO_ID, "hanako");
         taro = user(TARO_ID, "taro");
         when(userRepository.findByUsernameIgnoreCase("hanako")).thenReturn(Optional.of(hanako));

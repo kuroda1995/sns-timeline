@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.example.snstimeline.service.storage.ImageStorage;
 import com.example.snstimeline.dto.AuthResponse;
 import com.example.snstimeline.dto.LoginRequest;
 import com.example.snstimeline.dto.SignupRequest;
@@ -36,7 +37,7 @@ class AuthServiceTest {
         jwtService = mock(JwtService.class);
         // テストを速くするため強度を下げる
         passwordEncoder = new BCryptPasswordEncoder(4);
-        authService = new AuthService(userRepository, passwordEncoder, jwtService);
+        authService = new AuthService(userRepository, passwordEncoder, jwtService, mock(ImageStorage.class));
         when(jwtService.issue(any())).thenReturn("token");
     }
 

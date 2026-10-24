@@ -10,6 +10,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.example.snstimeline.service.storage.ImageStorage;
 import com.example.snstimeline.dto.UserListResponse;
 import com.example.snstimeline.dto.UserSearchResponse;
 import com.example.snstimeline.entity.User;
@@ -36,7 +37,7 @@ class UserSearchServiceTest {
     void setUp() {
         userRepository = mock(UserRepository.class);
         followRepository = mock(FollowRepository.class);
-        userSearchService = new UserSearchService(userRepository, new FollowService(followRepository, userRepository));
+        userSearchService = new UserSearchService(userRepository, new FollowService(followRepository, userRepository, mock(ImageStorage.class)));
     }
 
     private static User user(long id, String username) {

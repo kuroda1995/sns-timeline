@@ -7,6 +7,7 @@ import com.example.snstimeline.dto.UserResponse;
 import com.example.snstimeline.entity.User;
 import com.example.snstimeline.exception.ApiException;
 import com.example.snstimeline.repository.UserRepository;
+import com.example.snstimeline.service.storage.ImageStorage;
 import java.util.Locale;
 import java.util.Set;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -28,13 +29,16 @@ public class AuthService {
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtService jwtService;
+    private final ImageStorage imageStorage;
     /** 存在しないメールアドレスでも照合処理を行い、応答時間から登録有無を推測されないようにするためのハッシュ */
     private final String dummyPasswordHash;
 
-    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService) {
+    public AuthService(UserRepository userRepository, PasswordEncoder passwordEncoder, JwtService jwtService,
+            ImageStorage imageStorage) {
         this.userRepository = userRepository;
         this.passwordEncoder = passwordEncoder;
         this.jwtService = jwtService;
+        this.imageStorage = imageStorage;
         this.dummyPasswordHash = passwordEncoder.encode("dummy-password-for-timing-1");
     }
 
@@ -59,7 +63,7 @@ public class AuthService {
         } catch (DataIntegrityViolationException e) {
             throw new ApiException(HttpStatus.CONFLICT, "ユーザー名またはメールアドレスは既に使われています");
         }
-        return new AuthResponse(jwtService.issue(user), UserResponse.from(user));
+        return new AuthResponse(jwtService.issue(user), UserResponse.from(user, imageStorage));
     }
 
     @Transactional(readOnly = true)
@@ -71,13 +75,13 @@ public class AuthService {
             // どちらが間違っているかは伝えない
             throw new ApiException(HttpStatus.UNAUTHORIZED, LOGIN_FAILED_MESSAGE);
         }
-        return new AuthResponse(jwtService.issue(user), UserResponse.from(user));
+        return new AuthResponse(jwtService.issue(user), UserResponse.from(user, imageStorage));
     }
 
     @Transactional(readOnly = true)
     public UserResponse me(Long userId) {
         return userRepository.findById(userId)
-                .map(UserResponse::from)
+                .map(user -> UserResponse.from(user, imageStorage))
                 // トークンは有効でもユーザーが存在しない場合は、ログインし直してもらう
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "ログインしてください"));
     }

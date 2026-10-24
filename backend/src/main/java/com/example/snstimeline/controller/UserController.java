@@ -1,5 +1,6 @@
 package com.example.snstimeline.controller;
 
+import com.example.snstimeline.dto.AvatarResponse;
 import com.example.snstimeline.dto.PageResponse;
 import com.example.snstimeline.dto.PostResponse;
 import com.example.snstimeline.dto.ProfileResponse;
@@ -8,15 +9,18 @@ import com.example.snstimeline.dto.UserListResponse;
 import com.example.snstimeline.dto.UserSearchResponse;
 import com.example.snstimeline.service.UserSearchService;
 import com.example.snstimeline.service.UserService;
+import org.springframework.http.MediaType;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 /**
  * ユーザー(検索・プロフィール)のAPI。/api/users/search・new・me はユーザー名に使えない予約語のため、
@@ -64,6 +68,13 @@ public class UserController {
     @PutMapping("/me")
     public ProfileResponse updateMe(@AuthenticationPrincipal Jwt jwt, @RequestBody UpdateProfileRequest request) {
         return userService.updateMe(userId(jwt), request);
+    }
+
+    /** U-06 アイコン画像の変更(ログイン中のユーザー自身のみ)。multipart/form-data のパート名 avatar に画像1枚 */
+    @PostMapping(path = "/me/avatar", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public AvatarResponse changeAvatar(@AuthenticationPrincipal Jwt jwt,
+            @RequestParam(name = "avatar", required = false) MultipartFile avatar) {
+        return userService.changeAvatar(userId(jwt), avatar);
     }
 
     private static Long userId(Jwt jwt) {

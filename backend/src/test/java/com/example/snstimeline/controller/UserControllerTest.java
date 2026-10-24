@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.multipart;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -12,6 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.example.snstimeline.config.CorsConfig;
 import com.example.snstimeline.config.JwtConfig;
 import com.example.snstimeline.config.SecurityConfig;
+import com.example.snstimeline.dto.AvatarResponse;
 import com.example.snstimeline.dto.PageResponse;
 import com.example.snstimeline.dto.ProfileResponse;
 import com.example.snstimeline.dto.UpdateProfileRequest;
@@ -31,6 +33,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -174,6 +177,26 @@ class UserControllerTest {
                         .content("{\"displayName\":\"乗っ取り\",\"bio\":\"\"}")
                         .header("Authorization", bearer(2L)))
                 .andExpect(status().isMethodNotAllowed());
+        verifyNoInteractions(userService);
+    }
+
+    @Test
+    void changeAvatar_パート名avatarの画像を受け取り新しいURLを返す() throws Exception {
+        when(userService.changeAvatar(eq(2L), any()))
+                .thenReturn(new AvatarResponse("http://localhost:8080/uploads/avatars/new.jpg"));
+
+        mockMvc.perform(multipart("/api/users/me/avatar")
+                        .file(new MockMultipartFile("avatar", "me.jpg", "image/jpeg", new byte[] {1}))
+                        .header("Authorization", bearer(2L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.avatarUrl").value("http://localhost:8080/uploads/avatars/new.jpg"));
+    }
+
+    @Test
+    void changeAvatar_JWTが無ければ401() throws Exception {
+        mockMvc.perform(multipart("/api/users/me/avatar")
+                        .file(new MockMultipartFile("avatar", "me.jpg", "image/jpeg", new byte[] {1})))
+                .andExpect(status().isUnauthorized());
         verifyNoInteractions(userService);
     }
 }

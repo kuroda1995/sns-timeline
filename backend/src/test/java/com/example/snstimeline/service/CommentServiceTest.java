@@ -8,6 +8,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.example.snstimeline.service.storage.ImageStorage;
 import com.example.snstimeline.dto.CommentCountResponse;
 import com.example.snstimeline.dto.CommentResponse;
 import com.example.snstimeline.dto.CreateCommentResponse;
@@ -48,7 +49,7 @@ class CommentServiceTest {
         commentRepository = mock(CommentRepository.class);
         postRepository = mock(PostRepository.class);
         userRepository = mock(UserRepository.class);
-        commentService = new CommentService(commentRepository, postRepository, userRepository);
+        commentService = new CommentService(commentRepository, postRepository, userRepository, mock(ImageStorage.class));
         hanako = user(HANAKO_ID, "hanako");
         taro = user(TARO_ID, "taro");
         // 投稿者は太郎

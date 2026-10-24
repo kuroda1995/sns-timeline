@@ -8,6 +8,7 @@ import com.example.snstimeline.entity.User;
 import com.example.snstimeline.exception.ApiException;
 import com.example.snstimeline.repository.FollowRepository;
 import com.example.snstimeline.repository.UserRepository;
+import com.example.snstimeline.service.storage.ImageStorage;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -26,10 +27,12 @@ public class FollowService {
 
     private final FollowRepository followRepository;
     private final UserRepository userRepository;
+    private final ImageStorage imageStorage;
 
-    public FollowService(FollowRepository followRepository, UserRepository userRepository) {
+    public FollowService(FollowRepository followRepository, UserRepository userRepository, ImageStorage imageStorage) {
         this.followRepository = followRepository;
         this.userRepository = userRepository;
+        this.imageStorage = imageStorage;
     }
 
     /** F-01 フォローする。既にフォロー済みでも成功として扱う */
@@ -79,8 +82,7 @@ public class FollowService {
                         u.getId(),
                         u.getUsername(),
                         u.getDisplayName(),
-                        // avatarUrl は画像保存(ImageStorage)の実装時に avatar_key から組み立てる
-                        null,
+                        imageStorage.toUrl(u.getAvatarKey()),
                         u.getBio(),
                         followedIds.contains(u.getId()),
                         u.getId().equals(me)))
