@@ -4,6 +4,8 @@ import { RequireAuth } from './components/RequireAuth.jsx'
 import { AppLayout } from './layout/AppLayout.jsx'
 import { LoginPage } from './pages/LoginPage.jsx'
 import { PostDetailPage } from './pages/PostDetailPage.jsx'
+import { ProfileEditPage } from './pages/ProfileEditPage.jsx'
+import { ProfilePage } from './pages/ProfilePage.jsx'
 import { SignupPage } from './pages/SignupPage.jsx'
 import { TimelinePage } from './pages/TimelinePage.jsx'
 
@@ -18,6 +20,8 @@ export default function App() {
         <Route element={<AppLayout />}>
           <Route path="/" element={<TimelinePage />} />
           <Route path="/posts/:postId" element={<PostDetailPage />} />
+          <Route path="/users/:username" element={<ProfilePage />} />
+          <Route path="/settings/profile" element={<ProfileEditPage />} />
         </Route>
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />

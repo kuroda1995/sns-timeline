@@ -4,6 +4,7 @@ import * as postsApi from '../api/postsApi.js'
 import { formatDateTime, formatRelativeTime } from '../utils/dateUtils.js'
 import { Avatar } from './Avatar.jsx'
 import { LikeButton } from './LikeButton.jsx'
+import { UserLink } from './UserLink.jsx'
 
 /**
  * 投稿カード(要件定義書 6-4)。タイムライン・投稿詳細で共通。
@@ -80,14 +81,25 @@ export function PostCard({ post, detail = false, onEdit, onDeleted, onPostChange
     </div>
   )
 
+  // 表示名のリンクと同じ移動先のため、キーボード操作・読み上げでは飛ばす
+  const avatarLink = (
+    <UserLink username={post.author.username} tabIndex={-1} aria-hidden="true">
+      <Avatar user={post.author} />
+    </UserLink>
+  )
+
   if (detail) {
     return (
       <article className="post-card is-detail">
         <div className="post-card__detail-head">
-          <Avatar user={post.author} />
+          {avatarLink}
           <div className="post-card__detail-names">
-            <span className="post-card__name">{post.author.displayName}</span>
-            <span className="post-card__user">@{post.author.username}</span>
+            <UserLink username={post.author.username} className="post-card__name">
+              {post.author.displayName}
+            </UserLink>
+            <UserLink username={post.author.username} className="post-card__user">
+              @{post.author.username}
+            </UserLink>
           </div>
           {ownerButtons}
         </div>
@@ -103,11 +115,15 @@ export function PostCard({ post, detail = false, onEdit, onDeleted, onPostChange
 
   return (
     <article className="post-card" onClick={handleCardClick}>
-      <Avatar user={post.author} />
+      {avatarLink}
       <div className="post-card__body">
         <div className="post-card__head">
-          <span className="post-card__name">{post.author.displayName}</span>
-          <span className="post-card__user">@{post.author.username}</span>
+          <UserLink username={post.author.username} className="post-card__name">
+            {post.author.displayName}
+          </UserLink>
+          <UserLink username={post.author.username} className="post-card__user">
+            @{post.author.username}
+          </UserLink>
           <span className="post-card__time">
             ・
             <Link to={detailPath} title={formatDateTime(post.createdAt)}>

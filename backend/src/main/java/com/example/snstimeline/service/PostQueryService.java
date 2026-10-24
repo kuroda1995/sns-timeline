@@ -43,7 +43,18 @@ public class PostQueryService {
     public PageResponse<PostResponse> timeline(Long me, Long cursor) {
         long before = cursor == null ? Long.MAX_VALUE : cursor;
         // 1件多く取得して、次のページがあるかを判定する
-        List<Post> posts = postRepository.findTimeline(me, before, Limit.of(PAGE_SIZE + 1));
+        return toPage(postRepository.findTimeline(me, before, Limit.of(PAGE_SIZE + 1)), me);
+    }
+
+    /** U-04 ユーザーの投稿一覧。組み立てはタイムラインと同じ。cursor が null なら最新から取得する */
+    @Transactional(readOnly = true)
+    public PageResponse<PostResponse> userPosts(Long me, Long userId, Long cursor) {
+        long before = cursor == null ? Long.MAX_VALUE : cursor;
+        return toPage(postRepository.findByAuthor(userId, before, Limit.of(PAGE_SIZE + 1)), me);
+    }
+
+    /** PAGE_SIZE + 1 件取得した結果から、20件と次のページがあるかを組み立てる */
+    private PageResponse<PostResponse> toPage(List<Post> posts, Long me) {
         boolean hasNext = posts.size() > PAGE_SIZE;
         List<Post> page = hasNext ? posts.subList(0, PAGE_SIZE) : posts;
         Long nextCursor = hasNext ? page.getLast().getId() : null;

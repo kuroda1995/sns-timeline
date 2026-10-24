@@ -2,6 +2,7 @@ import { useState } from 'react'
 import * as commentsApi from '../api/commentsApi.js'
 import { formatDateTime, formatRelativeTime } from '../utils/dateUtils.js'
 import { Avatar } from './Avatar.jsx'
+import { UserLink } from './UserLink.jsx'
 
 /**
  * コメント1件(CMT-02・03)。🗑 は自分のコメント(comment.isMine)にだけ表示する。
@@ -27,11 +28,18 @@ export function CommentItem({ comment, onDeleted }) {
 
   return (
     <article className="comment">
-      <Avatar user={comment.author} />
+      {/* 表示名のリンクと同じ移動先のため、キーボード操作・読み上げでは飛ばす */}
+      <UserLink username={comment.author.username} tabIndex={-1} aria-hidden="true">
+        <Avatar user={comment.author} />
+      </UserLink>
       <div className="post-card__body">
         <div className="post-card__head">
-          <span className="post-card__name">{comment.author.displayName}</span>
-          <span className="post-card__user">@{comment.author.username}</span>
+          <UserLink username={comment.author.username} className="post-card__name">
+            {comment.author.displayName}
+          </UserLink>
+          <UserLink username={comment.author.username} className="post-card__user">
+            @{comment.author.username}
+          </UserLink>
           <span className="post-card__time">
             ・
             <time dateTime={comment.createdAt} title={formatDateTime(comment.createdAt)}>

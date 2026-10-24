@@ -31,6 +31,14 @@ public interface PostRepository extends JpaRepository<Post, Long> {
             """)
     List<Post> findTimeline(@Param("me") Long me, @Param("cursor") long cursor, Limit limit);
 
+    /** U-04 ユーザーの投稿一覧。cursor より古い投稿を新しい順に取得する(1ページ目は Long.MAX_VALUE) */
+    @Query("""
+            select p from Post p join fetch p.user
+            where p.deletedAt is null and p.user.id = :userId and p.id < :cursor
+            order by p.id desc
+            """)
+    List<Post> findByAuthor(@Param("userId") Long userId, @Param("cursor") long cursor, Limit limit);
+
     /** T-02 新着投稿(TL-05)。since より新しい投稿を、新しい順に取得する */
     @Query("""
             select p from Post p join fetch p.user

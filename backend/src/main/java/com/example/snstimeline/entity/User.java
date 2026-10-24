@@ -59,6 +59,12 @@ public class User {
         this.displayName = displayName;
     }
 
+    /** U-05 プロフィール更新。入力チェックは UserService で行う */
+    public void updateProfile(String displayName, String bio) {
+        this.displayName = displayName;
+        this.bio = bio;
+    }
+
     public Long getId() {
         return id;
     }
