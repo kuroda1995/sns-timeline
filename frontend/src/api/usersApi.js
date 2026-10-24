@@ -40,6 +40,13 @@ export function getFollowList(username, kind, cursor) {
   return request(`/api/users/${encodeURIComponent(username)}/${kind}${query}`)
 }
 
+/** U-06 アイコン画像の変更(ログイン中のユーザー自身のみ) → { avatarUrl }。パート名 avatar に画像1枚 */
+export function uploadAvatar(file) {
+  const form = new FormData()
+  form.append('avatar', file)
+  return request('/api/users/me/avatar', { method: 'POST', body: form })
+}
+
 /** U-05 プロフィール更新(ログイン中のユーザー自身のみ) → Profile */
 export function updateProfile({ displayName, bio }) {
   return request('/api/users/me', { method: 'PUT', body: { displayName, bio } })
