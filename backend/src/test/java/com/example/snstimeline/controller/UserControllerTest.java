@@ -18,6 +18,10 @@ import com.example.snstimeline.dto.UpdateProfileRequest;
 import com.example.snstimeline.entity.User;
 import com.example.snstimeline.exception.ApiException;
 import com.example.snstimeline.service.JwtService;
+import com.example.snstimeline.dto.UserListResponse;
+import com.example.snstimeline.dto.UserSearchResponse;
+import com.example.snstimeline.dto.UserSummary;
+import com.example.snstimeline.service.UserSearchService;
 import com.example.snstimeline.service.UserService;
 import java.time.Instant;
 import java.util.List;
@@ -46,6 +50,9 @@ class UserControllerTest {
     @MockitoBean
     private UserService userService;
 
+    @MockitoBean
+    private UserSearchService userSearchService;
+
     private static final ProfileResponse TARO = new ProfileResponse(3L, "taro", "太郎", null, "Javaを勉強中です。",
             12, 34, false, false, Instant.parse("2026-10-01T00:00:00Z"));
 
@@ -53,6 +60,49 @@ class UserControllerTest {
         User user = new User("hanako", "hanako@example.com", "hash", "花子");
         ReflectionTestUtils.setField(user, "id", userId);
         return "Bearer " + jwtService.issue(user);
+    }
+
+    private static final UserSummary TARO_ROW = new UserSummary(3L, "taro", "太郎", null, "Javaを勉強中です", true, false);
+
+    @Test
+    void search_キーワードとページを渡して検索結果を返す() throws Exception {
+        when(userSearchService.search(2L, "@taro", 1)).thenReturn(new UserSearchResponse(List.of(TARO_ROW), 1, false));
+
+        mockMvc.perform(get("/api/users/search").param("q", "@taro").param("page", "1")
+                        .header("Authorization", bearer(2L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].username").value("taro"))
+                .andExpect(jsonPath("$.items[0].followedByMe").value(true))
+                .andExpect(jsonPath("$.page").value(1))
+                .andExpect(jsonPath("$.hasNext").value(false));
+    }
+
+    @Test
+    void search_pageを省略すると0ページ目() throws Exception {
+        when(userSearchService.search(2L, "taro", 0)).thenReturn(new UserSearchResponse(List.of(), 0, false));
+
+        mockMvc.perform(get("/api/users/search").param("q", "taro").header("Authorization", bearer(2L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.page").value(0));
+    }
+
+    @Test
+    void search_キーワードが空なら400() throws Exception {
+        when(userSearchService.search(eq(2L), any(), eq(0)))
+                .thenThrow(new ApiException(HttpStatus.BAD_REQUEST, "検索するキーワードを入力してください", "q"));
+
+        mockMvc.perform(get("/api/users/search").header("Authorization", bearer(2L)))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.errors[0].field").value("q"));
+    }
+
+    @Test
+    void newUsers_新しく参加したユーザーを返す() throws Exception {
+        when(userSearchService.newUsers(2L)).thenReturn(new UserListResponse(List.of(TARO_ROW)));
+
+        mockMvc.perform(get("/api/users/new").header("Authorization", bearer(2L)))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.items[0].username").value("taro"));
     }
 
     @Test
