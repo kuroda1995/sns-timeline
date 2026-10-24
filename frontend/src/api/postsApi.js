@@ -1,9 +1,14 @@
 import { request } from './http.js'
 
-/** P-01 投稿作成 → Post。画像を添付できるよう multipart/form-data で送る */
-export function createPost({ content }) {
+/**
+ * P-01 投稿作成 → Post。multipart/form-data で本文と画像(同じ名前 images で最大4つ)を送る。
+ * 送った順が画像の表示順になる。
+ * @param {{ content: string, images?: File[] }} post
+ */
+export function createPost({ content, images = [] }) {
   const form = new FormData()
   form.append('content', content)
+  for (const image of images) form.append('images', image)
   return request('/api/posts', { method: 'POST', body: form })
 }
 

@@ -4,6 +4,7 @@ import * as postsApi from '../api/postsApi.js'
 import { formatDateTime, formatRelativeTime } from '../utils/dateUtils.js'
 import { Avatar } from './Avatar.jsx'
 import { LikeButton } from './LikeButton.jsx'
+import { PostImageGrid } from './PostImageGrid.jsx'
 import { UserLink } from './UserLink.jsx'
 
 /**
@@ -103,7 +104,8 @@ export function PostCard({ post, detail = false, onEdit, onDeleted, onPostChange
           </div>
           {ownerButtons}
         </div>
-        <p className="post-card__content">{post.content}</p>
+        {post.content && <p className="post-card__content">{post.content}</p>}
+        <PostImageGrid images={post.images} />
         <p className="post-card__datetime">
           <time dateTime={post.createdAt}>{formatDateTime(post.createdAt)}</time>
           {post.edited && <span className="post-card__edited"> ・ 編集済み</span>}
@@ -133,7 +135,9 @@ export function PostCard({ post, detail = false, onEdit, onDeleted, onPostChange
           {post.edited && <span className="post-card__edited">・編集済み</span>}
           {ownerButtons}
         </div>
-        <p className="post-card__content">{post.content}</p>
+        {/* 画像だけの投稿は本文が空 */}
+        {post.content && <p className="post-card__content">{post.content}</p>}
+        <PostImageGrid images={post.images} />
         {actions}
       </div>
     </article>
