@@ -5,7 +5,8 @@ import { AuthContext } from './AuthContext.js'
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
-  // トークンがあれば /me で確認するまで「確認中」にする(AUTH-04)
+  // トークンがあれば /me で確認するまで「確認中」にする(AUTH-04)。
+  // 'error' はトークンを確認できなかった(サーバーにつながらない)状態で、トークンは残している
   const [status, setStatus] = useState(() => (tokenStorage.get() ? 'loading' : 'guest'))
 
   const logout = useCallback(() => {
@@ -36,24 +37,55 @@ export function AuthProvider({ children }) {
     return () => setUnauthorizedHandler(null)
   }, [logout])
 
+  /**
+   * 保存済みのトークンで /me を呼び、ログイン状態を確かめる。
+   * ログアウトするのはトークンが無効(401)のときだけ。サーバーにつながらない・サーバーエラーのときは
+   * トークンが無効とは限らないので残し、onConnectionError を呼ぶ(処理のルール No.11)。
+   * @param {() => boolean} isCancelled 結果を捨てるかどうか(画面を離れたときなど)
+   * @param {() => void} onConnectionError
+   */
+  const verifyToken = useCallback(
+    (isCancelled, onConnectionError) =>
+      authApi
+        .me()
+        .then((me) => {
+          if (isCancelled()) return
+          setUser(me)
+          setStatus('authenticated')
+        })
+        .catch((err) => {
+          if (isCancelled()) return
+          if (err.status === 401) logout()
+          else onConnectionError()
+        }),
+    [logout],
+  )
+
   // ページを開いたとき、保存済みのトークンが有効か確認する(処理のルール No.4)
   useEffect(() => {
     if (!tokenStorage.get()) return
     let cancelled = false
-    authApi
-      .me()
-      .then((me) => {
-        if (cancelled) return
-        setUser(me)
-        setStatus('authenticated')
-      })
-      .catch(() => {
-        if (!cancelled) logout()
-      })
+    verifyToken(
+      () => cancelled,
+      () => setStatus('error'),
+    )
     return () => {
       cancelled = true
     }
-  }, [logout])
+  }, [verifyToken])
+
+  /** サーバーにつながらなかったときの「再読み込み」。もう一度トークンを確認する */
+  const retry = useCallback(() => {
+    if (!tokenStorage.get()) {
+      logout()
+      return
+    }
+    setStatus('loading')
+    verifyToken(
+      () => false,
+      () => setStatus('error'),
+    )
+  }, [logout, verifyToken])
 
   // 保存済みのトークンと画面の状態を合わせ直す。
   // ・「戻る」でブラウザがログイン中だったページをメモリから復元したとき(Back-Forward Cache)
@@ -65,13 +97,11 @@ export function AuthProvider({ children }) {
         logout()
         return
       }
-      authApi
-        .me()
-        .then((me) => {
-          setUser(me)
-          setStatus('authenticated')
-        })
-        .catch(logout)
+      // サーバーにつながらないときは、今の画面のまま(ログアウトしない)
+      verifyToken(
+        () => false,
+        () => {},
+      )
     }
     const handlePageShow = (e) => {
       if (e.persisted) sync()
@@ -86,7 +116,7 @@ export function AuthProvider({ children }) {
       window.removeEventListener('pageshow', handlePageShow)
       window.removeEventListener('storage', handleStorage)
     }
-  }, [logout])
+  }, [logout, verifyToken])
 
   /** プロフィールを更新したときに、サイドメニューなどに出ている自分の情報も書き換える */
   const updateUser = useCallback((patch) => {
@@ -94,8 +124,8 @@ export function AuthProvider({ children }) {
   }, [])
 
   const value = useMemo(
-    () => ({ user, status, login, signup, logout, updateUser }),
-    [user, status, login, signup, logout, updateUser],
+    () => ({ user, status, login, signup, logout, updateUser, retry }),
+    [user, status, login, signup, logout, updateUser, retry],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
