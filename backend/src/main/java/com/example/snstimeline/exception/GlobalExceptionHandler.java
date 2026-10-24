@@ -15,6 +15,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
+import org.springframework.web.multipart.MaxUploadSizeExceededException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 /** エラーレスポンスを設計書 4-1 の形にそろえる */
@@ -56,6 +57,13 @@ public class GlobalExceptionHandler {
                 : List.of(new FieldErrorItem(e.getField(), e.getMessage()));
         int status = e.getStatus().value();
         return ResponseEntity.status(status).body(new ErrorResponse(status, e.getMessage(), errors));
+    }
+
+    /** 画像が1枚5MB・合計20MBを超えた(spring.servlet.multipart の上限) */
+    @ExceptionHandler(MaxUploadSizeExceededException.class)
+    public ResponseEntity<ErrorResponse> handleMaxUploadSize(MaxUploadSizeExceededException e) {
+        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+                .body(ErrorResponse.of(413, "画像は1枚5MB以下、合計20MB以下にしてください"));
     }
 
     @ExceptionHandler(NoResourceFoundException.class)

@@ -3,25 +3,38 @@ package com.example.snstimeline.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.matches;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.example.snstimeline.dto.PostResponse;
 import com.example.snstimeline.entity.Post;
+import com.example.snstimeline.entity.PostImage;
 import com.example.snstimeline.entity.User;
 import com.example.snstimeline.exception.ApiException;
 import com.example.snstimeline.repository.CommentRepository;
 import com.example.snstimeline.repository.LikeRepository;
+import com.example.snstimeline.repository.PostImageRepository;
 import com.example.snstimeline.repository.PostRepository;
 import com.example.snstimeline.repository.UserRepository;
+import com.example.snstimeline.service.storage.ImageStorage;
+import com.example.snstimeline.service.storage.ImageValidator;
+import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.atomic.AtomicInteger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.web.multipart.MultipartFile;
 
 class PostServiceTest {
 
@@ -30,6 +43,8 @@ class PostServiceTest {
 
     private PostRepository postRepository;
     private UserRepository userRepository;
+    private PostImageRepository postImageRepository;
+    private ImageStorage imageStorage;
     private PostService postService;
     private User hanako;
 
@@ -37,11 +52,37 @@ class PostServiceTest {
     void setUp() {
         postRepository = mock(PostRepository.class);
         userRepository = mock(UserRepository.class);
-        postService = new PostService(postRepository, userRepository,
-                new PostQueryService(postRepository, mock(LikeRepository.class), mock(CommentRepository.class)));
+        postImageRepository = mock(PostImageRepository.class);
+        imageStorage = mock(ImageStorage.class);
+        PostQueryService postQueryService = new PostQueryService(postRepository, mock(LikeRepository.class),
+                mock(CommentRepository.class), postImageRepository, imageStorage);
+        postService = new PostService(postRepository, userRepository, postImageRepository, postQueryService,
+                new ImageValidator(), imageStorage);
         hanako = user(HANAKO_ID, "hanako");
         when(userRepository.findById(HANAKO_ID)).thenReturn(Optional.of(hanako));
         when(postRepository.saveAndFlush(any())).thenAnswer(inv -> inv.getArgument(0));
+        // 保存キーは保存した順に key1, key2, ...
+        AtomicInteger saved = new AtomicInteger();
+        when(imageStorage.save(any(), anyString(), anyString()))
+                .thenAnswer(inv -> "key" + saved.incrementAndGet() + "." + inv.getArgument(2));
+    }
+
+    /** テキストだけの投稿 */
+    private PostResponse createText(String content) {
+        return postService.create(HANAKO_ID, content, null);
+    }
+
+    /** 先頭のバイト列が PNG の画像ファイル */
+    private static MockMultipartFile png(String name) {
+        byte[] content = {(byte) 0x89, 'P', 'N', 'G', 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0};
+        return new MockMultipartFile("images", name, "image/png", content);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<PostImage> savedImages() {
+        ArgumentCaptor<List<PostImage>> captor = ArgumentCaptor.forClass(List.class);
+        verify(postImageRepository).saveAllAndFlush(captor.capture());
+        return captor.getValue();
     }
 
     private static User user(long id, String username) {
@@ -67,7 +108,7 @@ class PostServiceTest {
 
     @Test
     void create_前後の空白と改行を取り除き途中の改行は残して保存する() {
-        PostResponse response = postService.create(HANAKO_ID, "  \n 1行目\n2行目 \n ");
+        PostResponse response = createText("  \n 1行目\n2行目 \n ");
 
         ArgumentCaptor<Post> captor = ArgumentCaptor.forClass(Post.class);
         verify(postRepository).saveAndFlush(captor.capture());
@@ -82,7 +123,7 @@ class PostServiceTest {
         // 「あ」69文字 + 改行 + 「あ」70文字 = 画面上は140文字(CRLFのままだと141文字になる)
         String content = "あ".repeat(69) + "\r\n" + "あ".repeat(70);
 
-        postService.create(HANAKO_ID, content);
+        createText(content);
 
         ArgumentCaptor<Post> captor = ArgumentCaptor.forClass(Post.class);
         verify(postRepository).saveAndFlush(captor.capture());
@@ -91,25 +132,89 @@ class PostServiceTest {
 
     @Test
     void create_140文字ちょうどは投稿でき141文字は400() {
-        postService.create(HANAKO_ID, "あ".repeat(140));
+        createText("あ".repeat(140));
 
-        assertBadContent(() -> postService.create(HANAKO_ID, "あ".repeat(141)), "140文字以内で入力してください");
+        assertBadContent(() -> createText("あ".repeat(141)), "140文字以内で入力してください");
     }
 
     @Test
     void create_絵文字は1文字と数える() {
         // "👍".length() は2だが、見た目どおり1文字として数える
-        postService.create(HANAKO_ID, "👍".repeat(140));
+        createText("👍".repeat(140));
 
-        assertBadContent(() -> postService.create(HANAKO_ID, "👍".repeat(141)), "140文字以内で入力してください");
+        assertBadContent(() -> createText("👍".repeat(141)), "140文字以内で入力してください");
     }
 
     @Test
     void create_空白や改行だけ_全角スペースだけ_未入力は400() {
-        assertBadContent(() -> postService.create(HANAKO_ID, " \n\t "), "本文を入力してください");
-        assertBadContent(() -> postService.create(HANAKO_ID, "　　"), "本文を入力してください");
-        assertBadContent(() -> postService.create(HANAKO_ID, null), "本文を入力してください");
+        assertBadContent(() -> createText(" \n\t "), "本文を入力してください");
+        assertBadContent(() -> createText("　　"), "本文を入力してください");
+        assertBadContent(() -> createText(null), "本文を入力してください");
         verify(postRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void create_画像は送った順に月ごとのフォルダへ保存し表示順1から記録する() {
+        postService.create(HANAKO_ID, "旅行の写真", List.of(png("b.png"), png("a.png")));
+
+        verify(imageStorage, times(2)).save(any(), matches("posts/\\d{4}/\\d{2}"), eq("png"));
+        assertThat(savedImages()).extracting(PostImage::getImageKey).containsExactly("key1.png", "key2.png");
+        assertThat(savedImages()).extracting(PostImage::getSortOrder).containsExactly(1, 2);
+    }
+
+    @Test
+    void create_画像があれば本文は空でもよい_本文も画像も無いと400() {
+        PostResponse response = postService.create(HANAKO_ID, "  ", List.of(png("a.png")));
+
+        assertThat(response.content()).isEmpty();
+        assertBadContent(() -> postService.create(HANAKO_ID, "  ", List.of()), "本文を入力してください");
+    }
+
+    @Test
+    void create_画像が5枚以上なら400で何も保存しない() {
+        List<MultipartFile> five = List.of(png("1.png"), png("2.png"), png("3.png"), png("4.png"), png("5.png"));
+
+        assertThatThrownBy(() -> postService.create(HANAKO_ID, "本文", five))
+                .isInstanceOfSatisfying(ApiException.class, e -> {
+                    assertThat(e.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST);
+                    assertThat(e.getField()).isEqualTo("images");
+                    assertThat(e.getMessage()).isEqualTo("画像は4枚まで添付できます");
+                });
+        verify(imageStorage, never()).save(any(), anyString(), anyString());
+        verify(postRepository, never()).saveAndFlush(any());
+    }
+
+    @Test
+    void create_拡張子だけjpgにした画像以外のファイルが混ざっていたら400で1枚も保存しない() {
+        MockMultipartFile html = new MockMultipartFile("images", "evil.jpg", "image/jpeg",
+                "<html><script>alert(1)</script></html>".getBytes());
+
+        assertThatThrownBy(() -> postService.create(HANAKO_ID, "本文", List.of(png("a.png"), html)))
+                .isInstanceOfSatisfying(ApiException.class,
+                        e -> assertThat(e.getStatus()).isEqualTo(HttpStatus.BAD_REQUEST));
+        verify(imageStorage, never()).save(any(), anyString(), anyString());
+    }
+
+    @Test
+    void create_DBへの保存に失敗したら保存済みの画像ファイルを削除する() {
+        when(postImageRepository.saveAllAndFlush(any())).thenThrow(new DataIntegrityViolationException("失敗"));
+
+        assertThatThrownBy(() -> postService.create(HANAKO_ID, "本文", List.of(png("a.png"), png("b.png"))))
+                .isInstanceOf(DataIntegrityViolationException.class);
+        verify(imageStorage).delete("key1.png");
+        verify(imageStorage).delete("key2.png");
+    }
+
+    @Test
+    void update_画像付きの投稿は本文を空にできる_画像が無い投稿はできない() {
+        Post withImages = postOf(hanako, 10L);
+        when(postImageRepository.existsByPostId(10L)).thenReturn(true);
+        postOf(hanako, 11L);
+
+        postService.update(HANAKO_ID, 10L, "  ");
+
+        assertThat(withImages.getContent()).isEmpty();
+        assertBadContent(() -> postService.update(HANAKO_ID, 11L, "  "), "本文を入力してください");
     }
 
     @Test

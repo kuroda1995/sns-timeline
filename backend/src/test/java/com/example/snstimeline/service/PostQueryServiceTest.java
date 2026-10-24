@@ -3,6 +3,7 @@ package com.example.snstimeline.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.times;
@@ -17,8 +18,11 @@ import com.example.snstimeline.entity.Post;
 import com.example.snstimeline.entity.User;
 import com.example.snstimeline.repository.CommentRepository;
 import com.example.snstimeline.repository.LikeRepository;
+import com.example.snstimeline.entity.PostImage;
 import com.example.snstimeline.repository.PostCount;
+import com.example.snstimeline.repository.PostImageRepository;
 import com.example.snstimeline.repository.PostRepository;
+import com.example.snstimeline.service.storage.ImageStorage;
 import java.util.List;
 import java.util.stream.LongStream;
 import org.junit.jupiter.api.BeforeEach;
@@ -33,6 +37,8 @@ class PostQueryServiceTest {
     private PostRepository postRepository;
     private LikeRepository likeRepository;
     private CommentRepository commentRepository;
+    private PostImageRepository postImageRepository;
+    private ImageStorage imageStorage;
     private PostQueryService postQueryService;
     private User me;
 
@@ -41,7 +47,11 @@ class PostQueryServiceTest {
         postRepository = mock(PostRepository.class);
         likeRepository = mock(LikeRepository.class);
         commentRepository = mock(CommentRepository.class);
-        postQueryService = new PostQueryService(postRepository, likeRepository, commentRepository);
+        postImageRepository = mock(PostImageRepository.class);
+        imageStorage = mock(ImageStorage.class);
+        when(imageStorage.toUrl(anyString())).thenAnswer(inv -> "http://localhost:8080/uploads/" + inv.getArgument(0));
+        postQueryService = new PostQueryService(postRepository, likeRepository, commentRepository,
+                postImageRepository, imageStorage);
         me = new User("hanako", "hanako@example.com", "hash", "花子");
         ReflectionTestUtils.setField(me, "id", ME);
     }
@@ -120,7 +130,27 @@ class PostQueryServiceTest {
         assertThat(response.items()).isEmpty();
         assertThat(response.hasMore()).isFalse();
         // 投稿が0件なら集計のSQLは発行しない(空の IN () にしない)
-        verifyNoInteractions(likeRepository, commentRepository);
+        verifyNoInteractions(likeRepository, commentRepository, postImageRepository);
+    }
+
+    @Test
+    void toResponses_画像を投稿IDまとめて1回で取得し保存キーからURLを組み立てて投稿ごとに振り分ける() {
+        List<Post> posts = postsFrom(3, 3);
+        List<Long> ids = List.of(3L, 2L, 1L);
+        // 取得クエリが投稿ID・表示順で並べて返す
+        when(postImageRepository.findByPostIds(ids)).thenReturn(List.of(
+                new PostImage(posts.get(2), "posts/2026/10/c.png", 1),
+                new PostImage(posts.get(0), "posts/2026/10/a1.jpg", 1),
+                new PostImage(posts.get(0), "posts/2026/10/a2.jpg", 2)));
+
+        List<PostResponse> responses = postQueryService.toResponses(posts, ME);
+
+        assertThat(responses.get(0).images()).extracting(PostResponse.ImageResponse::url).containsExactly(
+                "http://localhost:8080/uploads/posts/2026/10/a1.jpg", "http://localhost:8080/uploads/posts/2026/10/a2.jpg");
+        assertThat(responses.get(0).images()).extracting(PostResponse.ImageResponse::sortOrder).containsExactly(1, 2);
+        assertThat(responses.get(1).images()).isEmpty();
+        assertThat(responses.get(2).images()).hasSize(1);
+        verify(postImageRepository, times(1)).findByPostIds(any());
     }
 
     private static PostCount count(long postId, long count) {
