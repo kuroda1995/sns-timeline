@@ -1,5 +1,10 @@
 # ローカル開発用のPostgreSQL
 # パスワードは backend/.env(.gitignore 済み)の POSTGRES_PASSWORD で渡す。.env.example をコピーして作る
+
+# プロジェクト名を固定する。省略するとフォルダ名(backend)になり、同じPCで backend/ フォルダの compose を使う
+# 別プロジェクトとサービス名(postgres)が同じだと、同じサービスとみなされて相手のコンテナを置き換えてしまう
+name: sns-timeline
+
 services:
   postgres:
     image: postgres:16

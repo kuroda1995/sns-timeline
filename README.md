@@ -203,6 +203,10 @@ docker compose up -d                                       # PostgreSQLコンテ
 
 `http://localhost:8080/api/health` にアクセスして `{"status":"UP"}` が返ってくれば起動成功。DBの接続情報・JWTの署名キーは `backend/src/main/resources/application-local.properties`（Gitには含めない）に記載する。
 
+> **compose のプロジェクト名は `sns-timeline` に固定している**（`docker-compose.yml` の `name:`）。省略するとフォルダ名の `backend` になり、同じPCで `backend/` フォルダの compose を使う別プロジェクトとサービス名（`postgres`）が同じだと、相手のコンテナを置き換えてしまうため。
+>
+> 2026-11 より前に `docker compose up -d` したことがある場合は、古いプロジェクト名（`backend`）のコンテナが残っているので、一度だけ `docker rm -f sns-timeline-postgres` してから `docker compose up -d` し直す。データの保存先（ボリューム）も `backend_postgres-data` から `sns-timeline_postgres-data` に変わるため、DBは空の状態から始まる（古いデータが不要なら `docker volume rm backend_postgres-data` で削除できる）。
+
 ### frontend/ の動かし方
 
 ```bash
