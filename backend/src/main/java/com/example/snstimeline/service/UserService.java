@@ -7,11 +7,14 @@ import com.example.snstimeline.dto.ProfileResponse;
 import com.example.snstimeline.dto.UpdateProfileRequest;
 import com.example.snstimeline.entity.User;
 import com.example.snstimeline.exception.ApiException;
+import com.example.snstimeline.logging.LogFields;
 import com.example.snstimeline.repository.FollowRepository;
 import com.example.snstimeline.repository.UserRepository;
 import com.example.snstimeline.service.storage.ImageStorage;
 import com.example.snstimeline.service.storage.ImageValidator;
 import com.example.snstimeline.service.storage.ImageValidator.ValidatedImage;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -26,6 +29,8 @@ public class UserService {
     static final int MAX_DISPLAY_NAME_LENGTH = 50;
     static final int MAX_BIO_LENGTH = 160;
     static final String NOT_FOUND_MESSAGE = "このアカウントは存在しません";
+
+    private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
     private final UserRepository userRepository;
     private final FollowRepository followRepository;
@@ -66,6 +71,7 @@ public class UserService {
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "ログインしてください"));
         user.updateProfile(displayName, bio);
         userRepository.flush();
+        log.atInfo().setMessage("プロフィールを更新しました").addKeyValue(LogFields.EVENT, "user.profile.updated").log();
         return toProfile(user, me);
     }
 
@@ -94,6 +100,7 @@ public class UserService {
         if (oldKey != null) {
             afterCommit(() -> imageStorage.delete(oldKey));
         }
+        log.atInfo().setMessage("アイコン画像を変更しました").addKeyValue(LogFields.EVENT, "user.avatar.changed").log();
         return new AvatarResponse(imageStorage.toUrl(newKey));
     }
 

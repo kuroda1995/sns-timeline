@@ -1,6 +1,7 @@
 package com.example.snstimeline.config;
 
 import com.example.snstimeline.dto.ErrorResponse;
+import com.example.snstimeline.logging.UserIdLoggingFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import org.springframework.context.annotation.Bean;
@@ -12,6 +13,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.server.resource.web.authentication.BearerTokenAuthenticationFilter;
 import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.access.AccessDeniedHandler;
@@ -60,7 +62,9 @@ public class SecurityConfig {
                         .accessDeniedHandler(forbidden))
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint(unauthorized)
-                        .accessDeniedHandler(forbidden));
+                        .accessDeniedHandler(forbidden))
+                // JWT を検証した後に、ログイン中のユーザーIDをログの共通項目に入れる(設計書 8-2)
+                .addFilterAfter(new UserIdLoggingFilter(), BearerTokenAuthenticationFilter.class);
         return http.build();
     }
 

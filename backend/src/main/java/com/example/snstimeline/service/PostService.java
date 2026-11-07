@@ -5,6 +5,7 @@ import com.example.snstimeline.entity.Post;
 import com.example.snstimeline.entity.PostImage;
 import com.example.snstimeline.entity.User;
 import com.example.snstimeline.exception.ApiException;
+import com.example.snstimeline.logging.LogFields;
 import com.example.snstimeline.repository.PostImageRepository;
 import com.example.snstimeline.repository.PostRepository;
 import com.example.snstimeline.repository.UserRepository;
@@ -14,6 +15,8 @@ import com.example.snstimeline.service.storage.ImageValidator.ValidatedImage;
 import java.time.YearMonth;
 import java.util.ArrayList;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,6 +28,8 @@ public class PostService {
 
     static final String NOT_FOUND_MESSAGE = "この投稿は削除されたか、存在しません";
     static final int MAX_IMAGES = 4;
+
+    private static final Logger log = LoggerFactory.getLogger(PostService.class);
 
     private final PostRepository postRepository;
     private final UserRepository userRepository;
@@ -77,6 +82,9 @@ public class PostService {
             }
             // flush してここでSQLを実行し、DBのエラーをこの try の中で受け取る
             postImageRepository.saveAllAndFlush(postImages);
+            // 本文はユーザーが書いた内容なのでログに出さず、IDと画像の枚数だけを出す(設計書 8-4)
+            log.atInfo().setMessage("投稿しました").addKeyValue(LogFields.EVENT, "post.created")
+                    .addKeyValue("postId", post.getId()).addKeyValue("imageCount", savedKeys.size()).log();
             return postQueryService.toResponse(post, me);
         } catch (RuntimeException e) {
             savedKeys.forEach(imageStorage::delete);
@@ -99,6 +107,8 @@ public class PostService {
                 : ContentRules.normalize(content);
         post.edit(normalized);
         postRepository.flush();
+        log.atInfo().setMessage("投稿を編集しました").addKeyValue(LogFields.EVENT, "post.updated")
+                .addKeyValue("postId", postId).log();
         return postQueryService.toResponse(post, me);
     }
 
@@ -106,6 +116,8 @@ public class PostService {
     @Transactional
     public void delete(Long me, Long postId) {
         findOwnPost(me, postId, "この投稿は削除できません").delete();
+        log.atInfo().setMessage("投稿を削除しました").addKeyValue(LogFields.EVENT, "post.deleted")
+                .addKeyValue("postId", postId).log();
     }
 
     private Post findVisible(Long postId) {

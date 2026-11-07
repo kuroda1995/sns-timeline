@@ -2,6 +2,7 @@ package com.example.snstimeline.exception;
 
 import com.example.snstimeline.dto.ErrorResponse;
 import com.example.snstimeline.dto.ErrorResponse.FieldErrorItem;
+import com.example.snstimeline.logging.LogFields;
 import java.util.List;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -56,6 +57,11 @@ public class GlobalExceptionHandler {
                 ? List.of()
                 : List.of(new FieldErrorItem(e.getField(), e.getMessage()));
         int status = e.getStatus().value();
+        if (e.getStatus() == HttpStatus.FORBIDDEN) {
+            // 画面ではボタンを出していないので、APIを直接呼ばれた可能性がある(設計書 8-3)
+            log.atWarn().setMessage("権限の無い操作を拒否しました: {}").addArgument(e.getMessage())
+                    .addKeyValue(LogFields.EVENT, "security.forbidden").log();
+        }
         return ResponseEntity.status(status).body(new ErrorResponse(status, e.getMessage(), errors));
     }
 
@@ -79,7 +85,9 @@ public class GlobalExceptionHandler {
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ErrorResponse> handleUnexpected(Exception e) {
-        log.error("Unexpected error", e);
+        // ERROR はすぐに対応が必要なものだけに使う(AWS ではこのログの件数で通知する、設計書 8-3)
+        log.atError().setMessage("想定外のエラーが発生しました").setCause(e)
+                .addKeyValue(LogFields.EVENT, "error.unexpected").log();
         return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(ErrorResponse.of(500, "サーバーでエラーが発生しました"));
     }

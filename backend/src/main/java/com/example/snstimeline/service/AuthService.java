@@ -6,10 +6,14 @@ import com.example.snstimeline.dto.SignupRequest;
 import com.example.snstimeline.dto.UserResponse;
 import com.example.snstimeline.entity.User;
 import com.example.snstimeline.exception.ApiException;
+import com.example.snstimeline.logging.LogFields;
+import com.example.snstimeline.logging.LogMasks;
 import com.example.snstimeline.repository.UserRepository;
 import com.example.snstimeline.service.storage.ImageStorage;
 import java.util.Locale;
 import java.util.Set;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -25,6 +29,8 @@ public class AuthService {
             Set.of("search", "new", "me", "admin", "settings", "login", "signup");
 
     static final String LOGIN_FAILED_MESSAGE = "メールアドレスまたはパスワードが正しくありません";
+
+    private static final Logger log = LoggerFactory.getLogger(AuthService.class);
 
     private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
@@ -63,6 +69,8 @@ public class AuthService {
         } catch (DataIntegrityViolationException e) {
             throw new ApiException(HttpStatus.CONFLICT, "ユーザー名またはメールアドレスは既に使われています");
         }
+        log.atInfo().setMessage("新規登録しました")
+                .addKeyValue(LogFields.EVENT, "auth.signup").addKeyValue(LogFields.USER_ID, user.getId()).log();
         return new AuthResponse(jwtService.issue(user), UserResponse.from(user, imageStorage));
     }
 
@@ -72,9 +80,16 @@ public class AuthService {
         String hash = user != null ? user.getPasswordHash() : dummyPasswordHash;
         boolean matches = passwordEncoder.matches(request.password(), hash);
         if (user == null || !matches) {
-            // どちらが間違っているかは伝えない
+            // 画面にはどちらが間違っているかを伝えないが、ログには残す。メールアドレスは一部を隠す(設計書 8-4)
+            log.atWarn().setMessage("ログインに失敗しました")
+                    .addKeyValue(LogFields.EVENT, "auth.login.failed")
+                    .addKeyValue("reason", user == null ? "user_not_found" : "wrong_password")
+                    .addKeyValue("email", LogMasks.email(request.email()))
+                    .log();
             throw new ApiException(HttpStatus.UNAUTHORIZED, LOGIN_FAILED_MESSAGE);
         }
+        log.atInfo().setMessage("ログインしました")
+                .addKeyValue(LogFields.EVENT, "auth.login.succeeded").addKeyValue(LogFields.USER_ID, user.getId()).log();
         return new AuthResponse(jwtService.issue(user), UserResponse.from(user, imageStorage));
     }
 

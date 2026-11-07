@@ -6,6 +6,7 @@ import com.example.snstimeline.dto.UserSummary;
 import com.example.snstimeline.entity.Follow;
 import com.example.snstimeline.entity.User;
 import com.example.snstimeline.exception.ApiException;
+import com.example.snstimeline.logging.LogFields;
 import com.example.snstimeline.repository.FollowRepository;
 import com.example.snstimeline.repository.UserRepository;
 import com.example.snstimeline.service.storage.ImageStorage;
@@ -13,6 +14,8 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.function.Function;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Limit;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,8 @@ public class FollowService {
 
     static final int PAGE_SIZE = 20;
     static final String SELF_FOLLOW_MESSAGE = "自分自身はフォローできません";
+
+    private static final Logger log = LoggerFactory.getLogger(FollowService.class);
 
     private final FollowRepository followRepository;
     private final UserRepository userRepository;
@@ -39,7 +44,11 @@ public class FollowService {
     @Transactional
     public FollowResponse follow(Long me, String username) {
         User target = findOtherUser(me, username);
-        followRepository.insertIfAbsent(me, target.getId());
+        // 既にフォロー済みで何も変わらなかったときはログに出さない
+        if (followRepository.insertIfAbsent(me, target.getId()) > 0) {
+            log.atInfo().setMessage("フォローしました").addKeyValue(LogFields.EVENT, "follow.created")
+                    .addKeyValue("targetUserId", target.getId()).log();
+        }
         return new FollowResponse(true, followRepository.countByFolloweeId(target.getId()));
     }
 
@@ -47,7 +56,10 @@ public class FollowService {
     @Transactional
     public FollowResponse unfollow(Long me, String username) {
         User target = findOtherUser(me, username);
-        followRepository.deleteByFollowerIdAndFolloweeId(me, target.getId());
+        if (followRepository.deleteByFollowerIdAndFolloweeId(me, target.getId()) > 0) {
+            log.atInfo().setMessage("フォロー解除しました").addKeyValue(LogFields.EVENT, "follow.deleted")
+                    .addKeyValue("targetUserId", target.getId()).log();
+        }
         return new FollowResponse(false, followRepository.countByFolloweeId(target.getId()));
     }
 
