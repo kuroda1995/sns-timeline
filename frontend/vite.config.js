@@ -10,4 +10,14 @@ export default defineConfig({
     port: 5173,
     strictPort: true,
   },
+  // 単体テスト・コンポーネントテスト(設計書 7)。ブラウザの代わりに jsdom で画面を組み立てる
+  test: {
+    environment: 'jsdom',
+    setupFiles: ['./src/test/setup.js'],
+    include: ['src/**/*.test.{js,jsx}'],
+    // テストごとにモック(vi.fn・vi.mock・vi.spyOn)を元に戻し、テスト同士で影響しないようにする
+    mockReset: true,
+    restoreMocks: true,
+    unstubGlobals: true,
+  },
 })
