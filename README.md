@@ -217,9 +217,11 @@ npm run dev
 
 `http://localhost:5173` をブラウザ（Google Chrome推奨）で開き、ログイン画面が表示されれば起動成功。「新規登録」からアカウントを作ると、タイムライン（ホーム）が表示され、「投稿する」から投稿できる。
 
-その他のコマンド（バックエンドのテストは `cd backend && ./gradlew.bat test`）：
+その他のコマンド（バックエンドのテストは `cd backend && ./gradlew.bat test`。テスト用のPostgreSQLを起動するため Docker を起動しておく。[設計書 7章](./設計書.md#7-テスト方針)）：
 
 ```bash
+npm test          # 単体テスト・コンポーネントテスト（Vitest）
+npm run test:watch  # ファイルを保存するたびにテストを実行
 npm run build     # 本番用ビルド
 npm run preview   # ビルド結果のプレビュー
 npm run lint      # oxlintによる静的解析

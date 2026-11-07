@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   backend:
+    # Repository・API結合テストは Testcontainers で PostgreSQL を起動する(ubuntu-latest には Docker が入っている)
     name: バックエンド(テスト・API仕様書の差分チェック)
     runs-on: ubuntu-latest
     defaults:
@@ -49,6 +50,8 @@ jobs:
       - run: npm ci
       - name: Lint
         run: npm run lint
+      - name: テスト
+        run: npm test
       - name: ビルド
         run: npm run build
       - name: APIの型(src/api/schema.d.ts)が openapi.yaml と一致しているか
