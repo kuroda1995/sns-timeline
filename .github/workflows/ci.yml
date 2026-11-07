@@ -1,0 +1,67 @@
+# PRごとにテスト・Lint・ビルドと、API仕様書(docs/api/openapi.yaml)が実装と一致しているかを確認する(設計書 4-4)
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  backend:
+    name: バックエンド(テスト・API仕様書の差分チェック)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v6
+      # OpenApiDocTest が、コミット済みの docs/api/openapi.yaml と実装から生成した結果を比べる
+      - name: テスト
+        run: ./gradlew test
+      - name: テストレポートを保存
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-test-report
+          path: backend/build/reports/tests/test/
+
+  frontend:
+    name: フロントエンド(Lint・ビルド・APIの型の差分チェック)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: ビルド
+        run: npm run build
+      - name: APIの型(src/api/schema.d.ts)が openapi.yaml と一致しているか
+        run: |
+          npm run gen:api-types
+          git diff --exit-code -- src/api/schema.d.ts || {
+            echo "::error::src/api/schema.d.ts が古いままです。frontend で npm run gen:api-types を実行し、差分をコミットしてください"
+            exit 1
+          }
+      - name: API仕様書(HTML)を作る
+        run: npm run build:api-doc
+      - name: API仕様書(HTML)を保存
+        uses: actions/upload-artifact@v7
+        with:
+          name: api-doc
+          path: docs/api/dist/index.html

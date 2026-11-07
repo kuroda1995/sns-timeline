@@ -28,6 +28,10 @@ backend/uploads/
 frontend/node_modules/
 frontend/dist/
 
+# ===== API仕様書 =====
+# npm run build:api-doc で作るHTML(GitHub Actions の成果物からもダウンロードできる)
+docs/api/dist/
+
 # ===== エディタ・OS =====
 .idea/
 *.iml
