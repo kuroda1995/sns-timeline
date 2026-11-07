@@ -19,7 +19,7 @@ import tools.jackson.databind.ObjectMapper;
 
 /**
  * どのAPIにログインが必要かの設定。
- * 新規登録・ログイン・ヘルスチェック・画像ファイル(/uploads/**)以外は、有効なJWT(Authorization: Bearer)が必要。
+ * 新規登録・ログイン・ヘルスチェック・画像ファイル(/uploads/**)・API仕様書以外は、有効なJWT(Authorization: Bearer)が必要。
  */
 @Configuration
 public class SecurityConfig {
@@ -48,6 +48,10 @@ public class SecurityConfig {
                         // 画像は <img> タグで表示するため Authorization ヘッダーを付けられない。
                         // ファイル名は推測できない UUID にしている(フェーズ2では S3 の署名付きURLに切り替える)
                         .requestMatchers(HttpMethod.GET, "/uploads/**").permitAll()
+                        // API仕様書。本番では springdoc の設定で無効にしているため、URL自体が存在しない(設計書 4-4)
+                        .requestMatchers(HttpMethod.GET, "/v3/api-docs", "/v3/api-docs.yaml", "/v3/api-docs/**",
+                                "/swagger-ui/**", "/swagger-ui.html")
+                        .permitAll()
                         .requestMatchers("/error").permitAll()
                         .anyRequest().authenticated())
                 .oauth2ResourceServer(oauth2 -> oauth2

@@ -24,6 +24,8 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-security-oauth2-resource-server'
 	implementation 'org.springframework.boot:spring-boot-starter-validation'
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
+	// API仕様書(OpenAPI)の自動生成と Swagger UI(設計書 4-4)
+	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.2.0'
 	runtimeOnly 'org.postgresql:postgresql'
 	testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
@@ -36,4 +38,10 @@ dependencies {
 
 tasks.named('test') {
 	useJUnitPlatform()
+	// OpenApiDocTest: -PupdateApiDoc を付けると docs/api/openapi.yaml を書き換え、付けなければ差分をチェックする
+	def updateApiDoc = project.hasProperty('updateApiDoc')
+	systemProperty 'updateApiDoc', updateApiDoc
+	inputs.property('updateApiDoc', updateApiDoc)
+	// yaml だけを手で書き換えた場合も、テストを実行し直して差分に気づけるようにする
+	inputs.files('../docs/api/openapi.yaml').withPropertyName('openApiDoc').optional()
 }
