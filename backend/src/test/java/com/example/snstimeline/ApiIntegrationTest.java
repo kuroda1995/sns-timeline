@@ -11,6 +11,10 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.spi.ILoggingEvent;
+import com.example.snstimeline.logging.LogFields;
+import com.example.snstimeline.support.LogCapture;
 import com.example.snstimeline.support.TestcontainersConfiguration;
 import com.jayway.jsonpath.JsonPath;
 import java.io.IOException;
@@ -333,5 +337,103 @@ class ApiIntegrationTest {
     void JWTが無ければAPIは401() throws Exception {
         mockMvc.perform(get("/api/timeline")).andExpect(status().isUnauthorized());
         mockMvc.perform(multipart("/api/posts").param("content", "a")).andExpect(status().isUnauthorized());
+    }
+
+    // ===== ログ(設計書 8章) =====
+
+    @Test
+    void ログイン中のリクエストのアクセスログにuserIdとrequestIdが付き_X_Request_Idヘッダーで返す() throws Exception {
+        String response = body(mockMvc.perform(post("/api/auth/signup").contentType(MediaType.APPLICATION_JSON).content("""
+                        {"username":"hanako","displayName":"花子","email":"hanako@example.com","password":"password123"}
+                        """)));
+        String token = "Bearer " + JsonPath.read(response, "$.token");
+        String userId = String.valueOf(JsonPath.<Integer>read(response, "$.user.id"));
+
+        try (LogCapture logs = LogCapture.root()) {
+            String requestId = mockMvc.perform(get("/api/timeline").header("Authorization", token))
+                    .andExpect(status().isOk())
+                    .andReturn().getResponse().getHeader("X-Request-Id");
+
+            ILoggingEvent access = logs.event("http.access").orElseThrow();
+            assertThat(access.getMDCPropertyMap())
+                    .containsEntry(LogFields.USER_ID, userId)
+                    .containsEntry(LogFields.REQUEST_ID, requestId);
+            assertThat(LogCapture.keyValues(access)).containsEntry("path", "/api/timeline").containsEntry("status", 200);
+        }
+    }
+
+    @Test
+    void 業務イベントは同じリクエストのrequestIdとuserId付きで出す() throws Exception {
+        String hanako = signup("hanako");
+
+        try (LogCapture logs = LogCapture.root()) {
+            long postId = createPost(hanako, "こんにちは");
+
+            ILoggingEvent created = logs.event("post.created").orElseThrow();
+            assertThat(LogCapture.keyValues(created)).containsEntry("postId", postId).containsEntry("imageCount", 0);
+            assertThat(created.getMDCPropertyMap().get(LogFields.REQUEST_ID))
+                    .isEqualTo(logs.event("http.access").orElseThrow().getMDCPropertyMap().get(LogFields.REQUEST_ID));
+            assertThat(created.getMDCPropertyMap()).containsKey(LogFields.USER_ID);
+        }
+    }
+
+    @Test
+    void ログインの失敗はWARNで理由を残し_メールアドレスは一部を隠す() throws Exception {
+        signup("hanako");
+
+        try (LogCapture logs = LogCapture.root()) {
+            mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"email\":\"hanako@example.com\",\"password\":\"wrong-password1\"}"))
+                    .andExpect(status().isUnauthorized());
+
+            ILoggingEvent failed = logs.event("auth.login.failed").orElseThrow();
+            assertThat(failed.getLevel()).isEqualTo(Level.WARN);
+            assertThat(LogCapture.keyValues(failed))
+                    .containsEntry("reason", "wrong_password")
+                    .containsEntry("email", "h***@example.com");
+        }
+    }
+
+    @Test
+    void 他人の投稿を操作しようとしたらWARNで記録する() throws Exception {
+        String hanako = signup("hanako");
+        String taro = signup("taro");
+        long postId = createPost(hanako, "花子の投稿");
+
+        try (LogCapture logs = LogCapture.root()) {
+            mockMvc.perform(delete("/api/posts/" + postId).header("Authorization", taro))
+                    .andExpect(status().isForbidden());
+
+            ILoggingEvent forbidden = logs.event("security.forbidden").orElseThrow();
+            assertThat(forbidden.getLevel()).isEqualTo(Level.WARN);
+            assertThat(forbidden.getMDCPropertyMap()).containsKey(LogFields.USER_ID);
+            assertThat(logs.event("post.deleted")).isEmpty();
+        }
+    }
+
+    @Test
+    void パスワード_JWT_メールアドレス_本文はログに出さない() throws Exception {
+        try (LogCapture logs = LogCapture.root()) {
+            String token = signup("hanako");
+            mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"email\":\"hanako@example.com\",\"password\":\"password123\"}")).andExpect(status().isOk());
+            mockMvc.perform(post("/api/auth/login").contentType(MediaType.APPLICATION_JSON)
+                    .content("{\"email\":\"hanako@example.com\",\"password\":\"secret-typo-99\"}"))
+                    .andExpect(status().isUnauthorized());
+            long postId = createPost(token, "誰にも知られたくない本文");
+            mockMvc.perform(post("/api/posts/" + postId + "/comments").header("Authorization", token)
+                            .contentType(MediaType.APPLICATION_JSON).content("{\"content\":\"秘密のコメント\"}"))
+                    .andExpect(status().isCreated());
+            mockMvc.perform(get("/api/users/search").param("q", "検索キーワード").header("Authorization", token))
+                    .andExpect(status().isOk());
+
+            String all = logs.allText();
+            assertThat(logs.event("auth.login.succeeded")).isPresent();
+            assertThat(all)
+                    .doesNotContain("password123", "secret-typo-99")
+                    .doesNotContain(token.substring("Bearer ".length()))
+                    .doesNotContain("hanako@example.com")
+                    .doesNotContain("誰にも知られたくない本文", "秘密のコメント", "検索キーワード");
+        }
     }
 }

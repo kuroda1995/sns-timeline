@@ -8,11 +8,14 @@ import com.example.snstimeline.dto.PostResponse.AuthorResponse;
 import com.example.snstimeline.entity.Comment;
 import com.example.snstimeline.entity.User;
 import com.example.snstimeline.exception.ApiException;
+import com.example.snstimeline.logging.LogFields;
 import com.example.snstimeline.repository.CommentRepository;
 import com.example.snstimeline.repository.PostRepository;
 import com.example.snstimeline.repository.UserRepository;
 import com.example.snstimeline.service.storage.ImageStorage;
 import java.util.List;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Limit;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -24,6 +27,8 @@ public class CommentService {
 
     static final int PAGE_SIZE = 20;
     static final String NOT_FOUND_MESSAGE = "このコメントは削除されたか、存在しません";
+
+    private static final Logger log = LoggerFactory.getLogger(CommentService.class);
 
     private final CommentRepository commentRepository;
     private final PostRepository postRepository;
@@ -60,6 +65,8 @@ public class CommentService {
                 .orElseThrow(() -> new ApiException(HttpStatus.UNAUTHORIZED, "ログインしてください"));
         Comment comment = commentRepository.saveAndFlush(
                 new Comment(postRepository.getReferenceById(postId), author, normalized));
+        log.atInfo().setMessage("コメントしました").addKeyValue(LogFields.EVENT, "comment.created")
+                .addKeyValue("commentId", comment.getId()).addKeyValue("postId", postId).log();
         return new CreateCommentResponse(toResponse(comment, me), commentRepository.countByPostIdAndDeletedAtIsNull(postId));
     }
 
@@ -75,6 +82,8 @@ public class CommentService {
         comment.delete();
         // 削除を反映してから数える
         commentRepository.flush();
+        log.atInfo().setMessage("コメントを削除しました").addKeyValue(LogFields.EVENT, "comment.deleted")
+                .addKeyValue("commentId", commentId).log();
         return new CommentCountResponse(commentRepository.countByPostIdAndDeletedAtIsNull(comment.getPost().getId()));
     }
 

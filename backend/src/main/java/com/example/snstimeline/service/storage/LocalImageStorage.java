@@ -1,5 +1,6 @@
 package com.example.snstimeline.service.storage;
 
+import com.example.snstimeline.logging.LogFields;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.file.Files;
@@ -47,7 +48,8 @@ public class LocalImageStorage implements ImageStorage {
             Files.deleteIfExists(resolve(key));
         } catch (IOException e) {
             // 消せなくても、使われないファイルが残るだけなので処理は止めない
-            log.warn("画像を削除できませんでした: {}", key, e);
+            log.atWarn().setMessage("画像を削除できませんでした").setCause(e)
+                    .addKeyValue(LogFields.EVENT, "storage.delete.failed").addKeyValue("imageKey", key).log();
         }
     }
 
