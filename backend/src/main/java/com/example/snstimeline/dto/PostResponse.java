@@ -3,6 +3,7 @@ package com.example.snstimeline.dto;
 import com.example.snstimeline.entity.User;
 import com.example.snstimeline.service.storage.ImageStorage;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 import java.util.List;
 
@@ -20,7 +21,8 @@ public record PostResponse(
         Instant createdAt) {
 
     /** 投稿者(設計書 4-3 の Post.author)。コメントのコメント者でも使う */
-    public record AuthorResponse(Long id, String username, String displayName, String avatarUrl) {
+    public record AuthorResponse(Long id, String username, String displayName,
+            @Schema(types = {"string", "null"}, description = "アイコン画像のURL。未設定なら null") String avatarUrl) {
 
         /** avatarUrl は保存キー(avatar_key)から組み立てる。アイコン未設定なら null(画面で表示名の1文字目を表示する) */
         public static AuthorResponse of(User user, ImageStorage imageStorage) {

@@ -9,3 +9,7 @@ spring.datasource.password=change-me
 # 32バイト以上のランダムな文字列にする
 # 例(PowerShell): [Convert]::ToBase64String((1..48 | ForEach-Object { Get-Random -Maximum 256 }))
 app.jwt.secret=change-me-to-a-random-string-of-at-least-32-bytes
+
+# API仕様書(Swagger UI: http://localhost:8080/swagger-ui.html)をローカルでだけ公開する(設計書 4-4)
+springdoc.api-docs.enabled=true
+springdoc.swagger-ui.enabled=true

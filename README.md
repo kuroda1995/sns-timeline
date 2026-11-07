@@ -12,7 +12,8 @@ X（旧Twitter）風のテキストタイムライン型SNS（プログラミン
 |---|---|
 | [要件定義書](./要件定義書.md) | 何を・誰のために・なぜ作るか、学習目標、画面一覧・画面遷移図、ユースケース、非機能要件、完成の目安 |
 | [機能一覧](./機能一覧.md) | 全機能の機能ID・優先度・画面・APIの対応表、権限のまとめ |
-| [設計書](./設計書.md) | ER図、テーブル定義、主要なSQL（タイムライン・件数集計・検索）、API設計 |
+| [設計書](./設計書.md) | ER図、テーブル定義、主要なSQL（タイムライン・件数集計・検索）、API設計、API仕様書の自動生成 |
+| [API仕様書](./docs/api/openapi.yaml) | 全APIのリクエスト・レスポンス・エラー（OpenAPI 3.1）。Controller・DTO から自動生成する（[設計書 4-4](./設計書.md#4-4-api仕様書openapiの自動生成)）。ローカルでは Swagger UI（`http://localhost:8080/swagger-ui.html`）でも見られる |
 | [技術スタック](./技術スタック.md) | フロントエンド／バックエンド／DB／インフラ／開発ツールの一覧、予定しているディレクトリ構成 |
 | [インフラ構成図](./インフラ構成図.md) | AWS（EC2・ALB・RDS・S3）の構成図、セキュリティグループ、無料利用枠とコスト、Terraformのファイル構成 |
 | [品質チェックリスト](./品質チェックリスト.md) | フロント／バックエンド／ドキュメント整合性のチェック観点と、なぜそれを確認するかの解説 |
@@ -93,6 +94,8 @@ X（旧Twitter）風のテキストタイムライン型SNS（プログラミン
 |------|------|
 | フロントエンド | React 19 + Vite（JavaScript）、React Router、oxlint |
 | バックエンド | Java 21 + Spring Boot 4.1（Web MVC / Spring Security / Spring Data JPA / Validation / Actuator）、Gradle |
+| API仕様書 | springdoc-openapi（Swagger UI）、Redocly CLI（HTML化）、openapi-typescript（フロントの型生成） |
+| CI | GitHub Actions（テスト・Lint・ビルド・API仕様書の差分チェック） |
 | 認証 | Spring Security + JWT（OAuth2 Resource Server） |
 | データベース | PostgreSQL 16（ローカル：Docker、AWS：RDS） |
 | 画像の保存先 | ローカルフォルダ（フェーズ1）／Amazon S3（フェーズ2） |
@@ -114,7 +117,9 @@ X（旧Twitter）風のテキストタイムライン型SNS（プログラミン
 ```
 sns-timeline/
 ├── .claude/skills/        # Claude Code用のプロジェクト固有スキル（開発サーバー起動・品質レビュー）
+├── .github/workflows/     # GitHub Actions（PRごとのテスト・Lint・ビルド・API仕様書の差分チェック）
 ├── 機能定義書/             # 機能ごとの詳しい仕様（9ファイル）
+├── docs/api/              # API仕様書（openapi.yaml、自動生成）
 ├── mock/                  # HTML/CSS/JavaScriptだけの画面確認用プロトタイプ（実装の本体ではない）
 ├── frontend/              # React + Vite製のフロントエンド
 ├── backend/               # Java + Spring Boot製のバックエンドAPI
@@ -214,7 +219,13 @@ npm run dev
 npm run build     # 本番用ビルド
 npm run preview   # ビルド結果のプレビュー
 npm run lint      # oxlintによる静的解析
+npm run gen:api-types  # API仕様書からAPIの型（src/api/schema.d.ts）を生成
+npm run build:api-doc  # API仕様書を1枚もののHTML（docs/api/dist/index.html）にする
 ```
+
+APIを変更したら、`backend/` で `./gradlew.bat test -PupdateApiDoc`（API仕様書の更新）、`frontend/` で `npm run gen:api-types`（型の更新）を実行し、生成されたファイルも一緒にコミットする（忘れると CI が失敗する。[設計書 4-4](./設計書.md#4-4-api仕様書openapiの自動生成)）。
+
+> 2026-11 より前に `application-local.properties` を作った場合は、Swagger UI を使うために `application-local.properties.example` の末尾の `springdoc.*` の2行を追記する。
 
 > フロントエンド・バックエンドを同時に動かす場合は、ポートを変更しないこと。バックエンドは`8080`固定、フロントエンドは`5173`固定でないとCORSエラーになる（詳細は [CLAUDE.md](./CLAUDE.md#5-開発サーバー起動時のポート管理) 参照）。Claude Codeに「開発サーバーを起動して」と頼むと、`.claude/skills/dev-servers` のルールに従って起動する。
 

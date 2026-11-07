@@ -1,0 +1,1325 @@
+openapi: 3.1.0
+info:
+  description: |-
+    タイムライン型SNSアプリのAPI。各APIの summary の先頭は設計書 4-2 のAPI ID。
+    新規登録・ログイン以外は、A-01・A-02 で受け取ったJWTを `Authorization: Bearer <token>` で送る。
+  title: SNS Timeline API
+  version: v1
+servers:
+- description: ローカル
+  url: http://localhost:8080
+security:
+- bearerAuth: []
+tags:
+- description: 認証機能(AUTH)
+  name: 認証
+- description: タイムライン機能(TL)
+  name: タイムライン
+- description: 投稿機能(PST)・画像投稿機能(IMG)
+  name: 投稿
+- description: いいね機能(LIKE)
+  name: いいね
+- description: コメント機能(CMT)
+  name: コメント
+- description: ユーザー検索機能(SRCH)
+  name: ユーザー検索
+- description: プロフィール機能(USER)
+  name: プロフィール
+- description: フォロー機能(FLW)
+  name: フォロー
+paths:
+  /api/auth/login:
+    post:
+      operationId: login
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+          description: ログイン成功
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 入力チェックエラー
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: メールアドレスが無い、またはパスワードが違う(どちらかは区別しない)
+      security: []
+      summary: A-02 ログイン
+      tags:
+      - 認証
+  /api/auth/me:
+    get:
+      operationId: me
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserResponse"
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+      summary: A-03 ログイン中のユーザー情報
+      tags:
+      - 認証
+  /api/auth/signup:
+    post:
+      description: 登録に成功するとJWTを返し、そのままログイン状態になる
+      operationId: signup
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+          description: 登録成功
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 入力チェックエラー、予約語のユーザー名
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ユーザー名・メールアドレスが既に使われている
+      security: []
+      summary: A-01 新規登録
+      tags:
+      - 認証
+  /api/comments/{commentId}:
+    delete:
+      description: 削除後の最新のコメント数を返す
+      operationId: deleteComment
+      parameters:
+      - in: path
+        name: commentId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CommentCountResponse"
+          description: 成功
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 自分のコメントではない
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 存在しない、または削除済み
+      summary: C-03 コメント削除(本人のみ)
+      tags:
+      - コメント
+  /api/posts:
+    post:
+      description: 画像が無い場合も multipart/form-data で送る
+      operationId: createPost
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+                  description: 本文(0〜140文字)。画像が無い場合は必須
+                images:
+                  type: array
+                  description: 画像ファイル(JPEG・PNG・GIF・WebP、1枚5MBまで)。同じ名前で最大4つ。送った順が表示順になる
+                  items:
+                    type: string
+                    format: binary
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostResponse"
+          description: 投稿成功
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 本文が141文字以上、本文も画像も無い、画像が5枚以上、対応していない画像の形式(中身で判定)
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+        "413":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 画像が1枚5MB超、合計20MB超
+        "415":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: multipart/form-data 以外(JSONなど)で送った
+      summary: P-01 投稿作成
+      tags:
+      - 投稿
+  /api/posts/{postId}:
+    delete:
+      operationId: deletePost
+      parameters:
+      - in: path
+        name: postId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "204":
+          description: 削除成功
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 自分の投稿ではない
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 存在しない、または削除済み
+      summary: P-03 投稿削除(本人のみ)
+      tags:
+      - 投稿
+    get:
+      operationId: getPost
+      parameters:
+      - in: path
+        name: postId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostResponse"
+          description: 取得成功
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: postId が数値でない
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 存在しない、または削除済み
+      summary: P-02 投稿詳細
+      tags:
+      - 投稿
+    put:
+      description: 編集すると edited が true になる
+      operationId: updatePost
+      parameters:
+      - in: path
+        name: postId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdatePostRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PostResponse"
+          description: 編集成功
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 本文が空、または141文字以上
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 自分の投稿ではない
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 存在しない、または削除済み
+      summary: P-04 投稿編集(本人のみ)
+      tags:
+      - 投稿
+  /api/posts/{postId}/comments:
+    get:
+      description: 古い順に返す
+      operationId: listComments
+      parameters:
+      - in: path
+        name: postId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      - description: 前回のレスポンスの nextCursor。省略すると最初から取得する
+        in: query
+        name: cursor
+        required: false
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageResponseCommentResponse"
+          description: 成功
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 投稿が存在しない、または削除済み
+      summary: C-01 コメント一覧
+      tags:
+      - コメント
+    post:
+      description: commentCount は他の人のコメントも含めた最新の数
+      operationId: createComment
+      parameters:
+      - in: path
+        name: postId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCommentRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreateCommentResponse"
+          description: 成功
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 空、141文字以上
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 投稿が存在しない、または削除済み
+      summary: C-02 コメント投稿
+      tags:
+      - コメント
+  /api/posts/{postId}/likes:
+    delete:
+      description: いいねしていなくても成功する
+      operationId: unlike
+      parameters:
+      - in: path
+        name: postId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LikeResponse"
+          description: 成功
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 投稿が存在しない、または削除済み
+      summary: L-02 いいね取り消し
+      tags:
+      - いいね
+    post:
+      description: 既にいいね済みでも成功する。likeCount は他の人のいいねも含めた最新の数
+      operationId: like
+      parameters:
+      - in: path
+        name: postId
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LikeResponse"
+          description: 成功
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 投稿が存在しない、または削除済み
+      summary: L-01 いいねする
+      tags:
+      - いいね
+  /api/timeline:
+    get:
+      description: フォロー中のユーザーと自分の投稿を新しい順に最大20件返す
+      operationId: timeline
+      parameters:
+      - description: 前回のレスポンスの nextCursor。省略すると最新から取得する
+        in: query
+        name: cursor
+        required: false
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageResponsePostResponse"
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+      summary: T-01 タイムライン
+      tags:
+      - タイムライン
+  /api/timeline/new:
+    get:
+      description: |-
+        since より新しい投稿を新しい順に最大20件返す。
+        hasMore が true のときは20件より多く溜まっているため、画面はタイムラインを読み込み直す。
+      operationId: newPosts
+      parameters:
+      - description: 画面がサーバーから受け取った中で一番新しい投稿ID(0件のときは 0)
+        in: query
+        name: since
+        required: true
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/NewPostsResponse"
+          description: 成功
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: since が無い、数値でない
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+      summary: T-02 新着投稿の確認
+      tags:
+      - タイムライン
+  /api/users/me:
+    put:
+      description: ログイン中のユーザー自身のプロフィールを更新し、更新後のプロフィールを返す
+      operationId: updateMe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateProfileRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileResponse"
+          description: 成功
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 入力チェックエラー
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+      summary: U-05 プロフィール更新
+      tags:
+      - プロフィール
+  /api/users/me/avatar:
+    post:
+      description: 形式・サイズのチェックは投稿画像(P-01)と同じ
+      operationId: changeAvatar
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              properties:
+                avatar:
+                  type: string
+                  format: binary
+                  description: 画像ファイル1枚(JPEG・PNG・GIF・WebP、5MBまで)
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AvatarResponse"
+          description: 成功
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 画像が無い、対応していない形式(中身で判定)
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+        "413":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 5MB超
+      summary: U-06 アイコン画像の変更
+      tags:
+      - プロフィール
+  /api/users/new:
+    get:
+      description: 登録が新しい順に20人を返す(自分は除く)
+      operationId: newUsers
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserListResponse"
+          description: OK
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+      summary: U-02 新しく参加したユーザー
+      tags:
+      - ユーザー検索
+  /api/users/search:
+    get:
+      description: 完全一致を先頭に、1ページ20件返す
+      operationId: search
+      parameters:
+      - description: キーワード(1〜50文字)。先頭が @ ならユーザー名だけを対象にする
+        in: query
+        name: q
+        required: true
+        schema:
+          type: string
+      - description: ページ番号(0始まり)
+        in: query
+        name: page
+        required: false
+        schema:
+          type: integer
+          format: int32
+          default: 0
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/UserSearchResponse"
+          description: 成功(0件の場合は items が空の配列)
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: q が無い、空、50文字を超える
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+      summary: U-01 ユーザー検索
+      tags:
+      - ユーザー検索
+  /api/users/{username}:
+    get:
+      operationId: profile
+      parameters:
+      - in: path
+        name: username
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProfileResponse"
+          description: 成功
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ユーザーが存在しない
+      summary: U-03 プロフィール
+      tags:
+      - プロフィール
+  /api/users/{username}/follow:
+    delete:
+      description: フォローしていなくても成功する
+      operationId: unfollow
+      parameters:
+      - in: path
+        name: username
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowResponse"
+          description: 成功
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 自分自身を指定した
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ユーザーが存在しない
+      summary: F-02 フォロー解除
+      tags:
+      - フォロー
+    post:
+      description: 既にフォロー済みでも成功する。followerCount は相手の最新のフォロワー数
+      operationId: follow
+      parameters:
+      - in: path
+        name: username
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FollowResponse"
+          description: 成功
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: 自分自身を指定した
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ユーザーが存在しない
+      summary: F-01 フォローする
+      tags:
+      - フォロー
+  /api/users/{username}/followers:
+    get:
+      description: followedByMe は「ログイン中のユーザーが、その行の人をフォローしているか」
+      operationId: followers
+      parameters:
+      - in: path
+        name: username
+        required: true
+        schema:
+          type: string
+      - description: 前回のレスポンスの nextCursor。省略すると最初から取得する
+        in: query
+        name: cursor
+        required: false
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageResponseUserSummary"
+          description: 成功
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ユーザーが存在しない
+      summary: F-04 フォロワーの一覧
+      tags:
+      - フォロー
+  /api/users/{username}/following:
+    get:
+      description: followedByMe は「ログイン中のユーザーが、その行の人をフォローしているか」
+      operationId: following
+      parameters:
+      - in: path
+        name: username
+        required: true
+        schema:
+          type: string
+      - description: 前回のレスポンスの nextCursor。省略すると最初から取得する
+        in: query
+        name: cursor
+        required: false
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageResponseUserSummary"
+          description: 成功
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ユーザーが存在しない
+      summary: F-03 フォロー中の一覧
+      tags:
+      - フォロー
+  /api/users/{username}/posts:
+    get:
+      description: タイムライン(T-01)と同じ形のページング付き一覧
+      operationId: posts
+      parameters:
+      - in: path
+        name: username
+        required: true
+        schema:
+          type: string
+      - description: 前回のレスポンスの nextCursor。省略すると最新から取得する
+        in: query
+        name: cursor
+        required: false
+        schema:
+          type: integer
+          format: int64
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PageResponsePostResponse"
+          description: 成功
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ログインしていない(JWTが無い・期限切れ・改ざんされている)
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+          description: ユーザーが存在しない
+      summary: U-04 ユーザーの投稿一覧
+      tags:
+      - プロフィール
+components:
+  schemas:
+    AuthResponse:
+      type: object
+      properties:
+        token:
+          type: string
+        user:
+          $ref: "#/components/schemas/UserResponse"
+      required:
+      - token
+      - user
+    AuthorResponse:
+      type: object
+      properties:
+        avatarUrl:
+          type:
+          - string
+          - "null"
+          description: アイコン画像のURL。未設定なら null
+        displayName:
+          type: string
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+      required:
+      - avatarUrl
+      - displayName
+      - id
+      - username
+    AvatarResponse:
+      type: object
+      properties:
+        avatarUrl:
+          type: string
+      required:
+      - avatarUrl
+    CommentCountResponse:
+      type: object
+      properties:
+        commentCount:
+          type: integer
+          format: int64
+      required:
+      - commentCount
+    CommentResponse:
+      type: object
+      properties:
+        author:
+          $ref: "#/components/schemas/AuthorResponse"
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        id:
+          type: integer
+          format: int64
+        isMine:
+          type: boolean
+      required:
+      - author
+      - content
+      - createdAt
+      - id
+      - isMine
+    CreateCommentRequest:
+      type: object
+      properties:
+        content:
+          type: string
+    CreateCommentResponse:
+      type: object
+      properties:
+        comment:
+          $ref: "#/components/schemas/CommentResponse"
+        commentCount:
+          type: integer
+          format: int64
+      required:
+      - comment
+      - commentCount
+    ErrorResponse:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldErrorItem"
+        message:
+          type: string
+        status:
+          type: integer
+          format: int32
+      required:
+      - errors
+      - message
+      - status
+    FieldErrorItem:
+      type: object
+      properties:
+        field:
+          type: string
+        message:
+          type: string
+      required:
+      - field
+      - message
+    FollowResponse:
+      type: object
+      properties:
+        followedByMe:
+          type: boolean
+        followerCount:
+          type: integer
+          format: int64
+      required:
+      - followedByMe
+      - followerCount
+    ImageResponse:
+      type: object
+      properties:
+        sortOrder:
+          type: integer
+          format: int32
+        url:
+          type: string
+      required:
+      - sortOrder
+      - url
+    LikeResponse:
+      type: object
+      properties:
+        likeCount:
+          type: integer
+          format: int64
+        likedByMe:
+          type: boolean
+      required:
+      - likeCount
+      - likedByMe
+    LoginRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          format: email
+          minLength: 1
+        password:
+          type: string
+          minLength: 1
+      required:
+      - email
+      - password
+    NewPostsResponse:
+      type: object
+      properties:
+        hasMore:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PostResponse"
+      required:
+      - hasMore
+      - items
+    PageResponseCommentResponse:
+      type: object
+      properties:
+        hasNext:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/CommentResponse"
+        nextCursor:
+          type:
+          - integer
+          - "null"
+          format: int64
+          description: 次のページを取得するときに cursor に渡す値。hasNext が false なら null
+      required:
+      - hasNext
+      - items
+      - nextCursor
+    PageResponsePostResponse:
+      type: object
+      properties:
+        hasNext:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/PostResponse"
+        nextCursor:
+          type:
+          - integer
+          - "null"
+          format: int64
+          description: 次のページを取得するときに cursor に渡す値。hasNext が false なら null
+      required:
+      - hasNext
+      - items
+      - nextCursor
+    PageResponseUserSummary:
+      type: object
+      properties:
+        hasNext:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserSummary"
+        nextCursor:
+          type:
+          - integer
+          - "null"
+          format: int64
+          description: 次のページを取得するときに cursor に渡す値。hasNext が false なら null
+      required:
+      - hasNext
+      - items
+      - nextCursor
+    PostResponse:
+      type: object
+      properties:
+        author:
+          $ref: "#/components/schemas/AuthorResponse"
+        commentCount:
+          type: integer
+          format: int64
+        content:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        edited:
+          type: boolean
+        id:
+          type: integer
+          format: int64
+        images:
+          type: array
+          items:
+            $ref: "#/components/schemas/ImageResponse"
+        isMine:
+          type: boolean
+        likeCount:
+          type: integer
+          format: int64
+        likedByMe:
+          type: boolean
+      required:
+      - author
+      - commentCount
+      - content
+      - createdAt
+      - edited
+      - id
+      - images
+      - isMine
+      - likeCount
+      - likedByMe
+    ProfileResponse:
+      type: object
+      properties:
+        avatarUrl:
+          type:
+          - string
+          - "null"
+          description: アイコン画像のURL。未設定なら null
+        bio:
+          type: string
+        createdAt:
+          type: string
+          format: date-time
+        displayName:
+          type: string
+        followedByMe:
+          type: boolean
+        followerCount:
+          type: integer
+          format: int64
+        followingCount:
+          type: integer
+          format: int64
+        id:
+          type: integer
+          format: int64
+        isMe:
+          type: boolean
+        username:
+          type: string
+      required:
+      - avatarUrl
+      - bio
+      - createdAt
+      - displayName
+      - followedByMe
+      - followerCount
+      - followingCount
+      - id
+      - isMe
+      - username
+    SignupRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+          maxLength: 50
+          minLength: 0
+        email:
+          type: string
+          format: email
+          maxLength: 255
+          minLength: 0
+        password:
+          type: string
+          maxLength: 72
+          minLength: 8
+          pattern: "^(?=.*[A-Za-z])(?=.*[0-9])[!-~]*$"
+        username:
+          type: string
+          maxLength: 15
+          minLength: 3
+          pattern: "^[A-Za-z0-9_]*$"
+      required:
+      - displayName
+      - email
+      - password
+      - username
+    UpdatePostRequest:
+      type: object
+      properties:
+        content:
+          type: string
+    UpdateProfileRequest:
+      type: object
+      properties:
+        bio:
+          type: string
+        displayName:
+          type: string
+    UserListResponse:
+      type: object
+      properties:
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserSummary"
+      required:
+      - items
+    UserResponse:
+      type: object
+      properties:
+        avatarUrl:
+          type:
+          - string
+          - "null"
+          description: アイコン画像のURL。未設定なら null
+        bio:
+          type: string
+        displayName:
+          type: string
+        id:
+          type: integer
+          format: int64
+        username:
+          type: string
+      required:
+      - avatarUrl
+      - bio
+      - displayName
+      - id
+      - username
+    UserSearchResponse:
+      type: object
+      properties:
+        hasNext:
+          type: boolean
+        items:
+          type: array
+          items:
+            $ref: "#/components/schemas/UserSummary"
+        page:
+          type: integer
+          format: int32
+      required:
+      - hasNext
+      - items
+      - page
+    UserSummary:
+      type: object
+      properties:
+        avatarUrl:
+          type:
+          - string
+          - "null"
+          description: アイコン画像のURL。未設定なら null
+        bio:
+          type: string
+        displayName:
+          type: string
+        followedByMe:
+          type: boolean
+        id:
+          type: integer
+          format: int64
+        isMe:
+          type: boolean
+        username:
+          type: string
+      required:
+      - avatarUrl
+      - bio
+      - displayName
+      - followedByMe
+      - id
+      - isMe
+      - username
+  securitySchemes:
+    bearerAuth:
+      bearerFormat: JWT
+      scheme: bearer
+      type: http

@@ -1,6 +1,7 @@
 package com.example.snstimeline.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.swagger.v3.oas.annotations.media.Schema;
 import java.time.Instant;
 
 /**
@@ -11,7 +12,7 @@ public record ProfileResponse(
         Long id,
         String username,
         String displayName,
-        String avatarUrl,
+        @Schema(types = {"string", "null"}, description = "アイコン画像のURL。未設定なら null") String avatarUrl,
         String bio,
         long followingCount,
         long followerCount,
