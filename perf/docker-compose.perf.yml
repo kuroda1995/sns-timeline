@@ -1,0 +1,32 @@
+# 性能テスト専用の PostgreSQL(設計書 7-5)
+# 開発用DB(backend/docker-compose.yml、ポート5432)とは別のコンテナ・別のデータにする。
+# 性能テストではデータを全件削除して投入し直すため、開発用のデータを消さないようにするのが目的。
+#
+# パスワードは開発用と同じ backend/.env の POSTGRES_PASSWORD を使う(新しい秘密情報を増やさない)。
+# リポジトリのルートで実行する:
+#   docker compose --env-file backend/.env -f perf/docker-compose.perf.yml up -d
+
+# 開発用(sns-timeline)と別のプロジェクト名にして、お互いのコンテナを置き換えないようにする
+name: sns-timeline-perf
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: sns-timeline-perf-postgres
+    # pg_stat_statements: SQLごとの実行回数・合計時間を記録する(遅いSQLを探す用)
+    command: ["postgres", "-c", "shared_preload_libraries=pg_stat_statements", "-c", "pg_stat_statements.track=all"]
+    environment:
+      POSTGRES_DB: sns_timeline_perf
+      POSTGRES_USER: sns_timeline
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?backend/.env に POSTGRES_PASSWORD を設定し、--env-file backend/.env を付けて実行してください}
+      TZ: UTC
+    ports:
+      # 開発用DB(5432)と同時に起動できるように、別のポートにする
+      - "5433:5432"
+    volumes:
+      - perf-postgres-data:/var/lib/postgresql/data
+      # 投入用SQLをコンテナの中から読めるようにする(docker exec で psql -f する)
+      - ./seed:/seed:ro
+
+volumes:
+  perf-postgres-data:
