@@ -1,0 +1,170 @@
+# 性能テスト(設計書 7-5、perf/README.md)。
+# 時間がかかるため PR ごとには実行しない。Actions の画面で「性能テスト」→「Run workflow」から手動で実行する。
+# 専用DBの起動 → バックエンドの起動 → テストデータの投入 → k6 の実行 を毎回同じ環境で行い、変更の前後を比べられるようにする。
+name: 性能テスト
+
+on:
+  workflow_dispatch:
+    inputs:
+      scenario:
+        description: シナリオ(smoke = 全APIを1回ずつ / load = 大勢が同時に使って合否を判定)
+        type: choice
+        options: [smoke, load]
+        default: smoke
+      vus:
+        description: 同時に使う人数(load のみ)
+        type: string
+        default: '100'
+      hold:
+        description: 全員が使い続ける時間(load のみ。例 3m・8m)
+        type: string
+        default: '8m'
+      scale:
+        description: テストデータの倍率(1 = 100人・1万投稿 / 10 = 1000人・10万投稿)
+        type: choice
+        options: ['1', '10']
+        default: '1'
+
+permissions:
+  contents: read
+
+jobs:
+  perf:
+    name: 性能テスト(${{ inputs.scenario }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    env:
+      # 入力値はシェルに直接埋め込まず、環境変数として渡す(意図しないコマンドの実行を防ぐ)
+      SCENARIO: ${{ inputs.scenario }}
+      VUS: ${{ inputs.vus }}
+      HOLD: ${{ inputs.hold }}
+      SCALE: ${{ inputs.scale }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: 入力のチェック
+        run: |
+          if ! [[ "$VUS" =~ ^[0-9]+$ ]] || (( VUS < 1 || VUS > 1000 )); then
+            echo "::error::vus は1〜1000の整数で指定してください(入力: $VUS)"
+            exit 1
+          fi
+          if ! [[ "$HOLD" =~ ^[0-9]+[sm]$ ]]; then
+            echo "::error::hold は 30s・8m のように、数字と s(秒)か m(分)で指定してください(入力: $HOLD)"
+            exit 1
+          fi
+          # seed.sql で作られるユーザー数(k6 がログインに使う)
+          echo "USER_COUNT=$((100 * SCALE))" >> "$GITHUB_ENV"
+
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v6
+      - uses: grafana/setup-k6-action@v1
+        with:
+          k6-version: '2.3.0'
+
+      # DBのパスワードとJWTの署名キーは、実行のたびにランダムに作る(リポジトリにも Secrets にも置かない)
+      - name: 使い捨ての秘密情報を作る
+        run: |
+          db_password=$(openssl rand -hex 24)
+          jwt_secret=$(openssl rand -base64 48)
+          echo "::add-mask::$db_password"
+          echo "::add-mask::$jwt_secret"
+          echo "POSTGRES_PASSWORD=$db_password" > "$RUNNER_TEMP/perf.env"
+          echo "SPRING_DATASOURCE_PASSWORD=$db_password" >> "$GITHUB_ENV"
+          echo "JWT_SECRET=$jwt_secret" >> "$GITHUB_ENV"
+
+      - name: 性能テスト専用DBを起動する
+        run: |
+          docker compose --env-file "$RUNNER_TEMP/perf.env" -f perf/docker-compose.perf.yml up -d
+          # 初期化中の一時的なサーバーは TCP で待ち受けないため、-h を付けて本番のサーバーが起動するまで待つ
+          for _ in $(seq 30); do
+            docker exec sns-timeline-perf-postgres pg_isready -h 127.0.0.1 -U sns_timeline -d sns_timeline_perf && exit 0
+            sleep 2
+          done
+          echo "::error::性能テスト専用DBが起動しませんでした"
+          exit 1
+
+      # CI には application-local.properties が無いため、perf プロファイルだけで起動し、
+      # DBのユーザー名・パスワードとJWTの署名キーは環境変数で渡す
+      - name: バックエンドを起動する(perf プロファイル)
+        working-directory: backend
+        env:
+          SPRING_PROFILES_ACTIVE: perf
+          SPRING_DATASOURCE_USERNAME: sns_timeline
+        run: |
+          ./gradlew bootJar
+          # build/libs/ には実行できない -plain.jar も作られるので除く
+          for f in build/libs/*.jar; do
+            [[ "$f" == *-plain.jar ]] || jar="$f"
+          done
+          nohup java -jar "$jar" > "$RUNNER_TEMP/backend.log" 2>&1 &
+          for _ in $(seq 60); do
+            curl -sf http://localhost:8080/api/health > /dev/null && exit 0
+            sleep 2
+          done
+          echo "::error::バックエンドが起動しませんでした"
+          tail -100 "$RUNNER_TEMP/backend.log"
+          exit 1
+
+      - name: テストデータを投入する
+        run: docker exec sns-timeline-perf-postgres psql -U sns_timeline -d sns_timeline_perf -v scale="$SCALE" -f /seed/seed.sql
+
+      # 合否の基準(perf/k6/lib/config.js)に外れると k6 の終了コードが非0になり、このジョブが失敗する
+      - name: k6 を実行する
+        env:
+          K6_WEB_DASHBOARD: 'true'
+          K6_WEB_DASHBOARD_EXPORT: perf/results/${{ inputs.scenario }}-report.html
+        run: |
+          k6 run --summary-export "perf/results/$SCENARIO-summary.json" \
+            -e VUS="$VUS" -e HOLD="$HOLD" -e USER_COUNT="$USER_COUNT" \
+            "perf/k6/scenarios/$SCENARIO.js"
+
+      - name: 結果をジョブのサマリーに出す
+        if: always()
+        run: |
+          summary="perf/results/$SCENARIO-summary.json"
+          [ -f "$summary" ] || exit 0
+          {
+            echo "## 性能テストの結果($SCENARIO)"
+            echo
+            if [ "$SCENARIO" = load ]; then
+              echo "人数: $VUS / 使い続ける時間: $HOLD / データ: ユーザー${USER_COUNT}人・投稿$((10000 * SCALE))件 / commit: ${GITHUB_SHA::7}"
+            else
+              echo "データ: ユーザー${USER_COUNT}人・投稿$((10000 * SCALE))件 / commit: ${GITHUB_SHA::7}"
+            fi
+            echo
+            echo "| 指標 | 基準 | 実測 | 判定 |"
+            echo "|---|---|---|---|"
+            # thresholds の値は true = 基準に外れた。rate は割合、それ以外(p(95) など)はミリ秒
+            jq -r '
+              .metrics | to_entries[] | select(.value.thresholds != null)
+              | .key as $metric | .value as $v
+              | $v.thresholds | to_entries[]
+              | (.key | capture("^(?<stat>[a-z0-9()]+)").stat) as $stat
+              | (if $stat == "rate" then "\(($v.value * 10000 | round) / 100)%"
+                 else "\(($v[$stat] * 100 | round) / 100) ms" end) as $actual
+              | "| `\($metric)` | `\(.key)` | \($actual) | \(if .value then "❌" else "✅" end) |"
+            ' "$summary"
+            echo
+            echo "APIごとのグラフは成果物の \`$SCENARIO-report.html\`、遅いSQLは \`pg-stat-statements.txt\` を参照。"
+          } >> "$GITHUB_STEP_SUMMARY"
+
+      - name: 遅いSQLとバックエンドのログを保存する
+        if: always()
+        run: |
+          mkdir -p perf/results
+          docker exec sns-timeline-perf-postgres psql -U sns_timeline -d sns_timeline_perf -c "
+            SELECT calls, round(total_exec_time) AS total_ms, round(mean_exec_time::numeric, 2) AS mean_ms,
+                   left(regexp_replace(query, '\s+', ' ', 'g'), 200) AS query
+            FROM pg_stat_statements ORDER BY total_exec_time DESC LIMIT 20;" > perf/results/pg-stat-statements.txt || true
+          cp "$RUNNER_TEMP/backend.log" perf/results/backend.log || true
+
+      - name: 結果を保存する
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: perf-${{ inputs.scenario }}-${{ github.run_number }}
+          path: perf/results/
+          retention-days: 30
