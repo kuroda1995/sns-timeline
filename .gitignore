@@ -58,3 +58,6 @@ Thumbs.db
 
 # ===== Claude Code(個人設定) =====
 .claude/settings.local.json
+
+# terraform plan -out で作る実行計画(設定値が入る)
+infra/tfplan

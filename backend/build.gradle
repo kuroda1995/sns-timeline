@@ -29,6 +29,9 @@ dependencies {
 	implementation 'org.springframework.boot:spring-boot-starter-webmvc'
 	// API仕様書(OpenAPI)の自動生成と Swagger UI(設計書 4-4)
 	implementation 'org.springdoc:springdoc-openapi-starter-webmvc-ui:3.2.0'
+	// 画像の保存先を S3 にする(フェーズ2、S3ImageStorage)
+	implementation platform('software.amazon.awssdk:bom:2.57.2')
+	implementation 'software.amazon.awssdk:s3'
 	runtimeOnly 'org.postgresql:postgresql'
 	testImplementation 'org.springframework.boot:spring-boot-starter-actuator-test'
 	testImplementation 'org.springframework.boot:spring-boot-starter-data-jpa-test'
