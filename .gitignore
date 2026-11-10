@@ -28,6 +28,17 @@ backend/uploads/
 frontend/node_modules/
 frontend/dist/
 
+# ===== E2Eテスト・ブラウザ性能テスト(Playwright) =====
+e2e/node_modules/
+# 失敗したときのトレース・スクリーンショット・動画と、HTMLのレポート
+e2e/test-results/
+e2e/test-results-perf/
+e2e/playwright-report/
+e2e/playwright-report-perf/
+e2e/blob-report/
+# テスト用にビルドした画面(npm run build の dist/ とは別)
+frontend/dist-e2e/
+
 # ===== 性能テスト(k6) =====
 # 計測結果(レポートのHTML・集計のJSON)は実行するたびに作られるのでコミットしない
 perf/results/*
