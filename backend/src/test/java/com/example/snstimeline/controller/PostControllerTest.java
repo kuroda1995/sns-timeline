@@ -33,17 +33,17 @@ import java.time.Instant;
 import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.mock.web.MockMultipartFile;
-import org.springframework.web.multipart.MultipartFile;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.context.TestPropertySource;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.web.multipart.MultipartFile;
 
 @WebMvcTest({PostController.class, TimelineController.class})
 @Import({SecurityConfig.class, CorsConfig.class, JwtConfig.class, JwtService.class})
@@ -120,11 +120,11 @@ class PostControllerTest {
     @Test
     void create_画像のサイズ超過は413() throws Exception {
         when(postService.create(eq(2L), any(), any()))
-                .thenThrow(new ApiException(HttpStatus.PAYLOAD_TOO_LARGE, "5MB以下の画像を選んでください", "images"));
+                .thenThrow(new ApiException(HttpStatus.CONTENT_TOO_LARGE, "5MB以下の画像を選んでください", "images"));
 
         mockMvc.perform(multipart("/api/posts").file(new MockMultipartFile("images", "big.png", "image/png", new byte[] {1}))
                         .header("Authorization", bearer(2L)))
-                .andExpect(status().isPayloadTooLarge());
+                .andExpect(status().isContentTooLarge());
     }
 
     @Test

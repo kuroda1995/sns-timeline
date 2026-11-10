@@ -1,0 +1,18 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["oxc", "import"],
+  "categories": {
+    "correctness": "error",
+    "suspicious": "error"
+  },
+  "rules": {
+    "import/no-unassigned-import": "off",
+    "no-underscore-dangle": [
+      "error",
+      {
+        "allow": ["__perf", "__perfDone", "__perfTarget", "__xss"],
+        "allowAfterThis": true
+      }
+    ]
+  }
+}

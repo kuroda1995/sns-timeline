@@ -8,7 +8,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.example.snstimeline.service.storage.ImageStorage;
 import com.example.snstimeline.dto.CommentCountResponse;
 import com.example.snstimeline.dto.CommentResponse;
 import com.example.snstimeline.dto.CreateCommentResponse;
@@ -20,6 +19,7 @@ import com.example.snstimeline.exception.ApiException;
 import com.example.snstimeline.repository.CommentRepository;
 import com.example.snstimeline.repository.PostRepository;
 import com.example.snstimeline.repository.UserRepository;
+import com.example.snstimeline.service.storage.ImageStorage;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.LongStream;

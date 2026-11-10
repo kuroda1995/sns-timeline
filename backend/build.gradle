@@ -2,6 +2,9 @@ plugins {
 	id 'java'
 	id 'org.springframework.boot' version '4.1.1'
 	id 'io.spring.dependency-management' version '1.1.7'
+	// 静的解析(設計書 7-7)。./gradlew check で、テストと一緒に実行される
+	id 'checkstyle'
+	id 'pmd'
 }
 
 group = 'com.example'
@@ -38,6 +41,36 @@ dependencies {
 	testImplementation 'org.testcontainers:testcontainers-junit-jupiter'
 	testImplementation 'org.testcontainers:testcontainers-postgresql'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+}
+
+// ===== 静的解析(設計書 7-7) =====
+// 実行: ./gradlew lint(静的解析だけ。Docker 不要で数十秒) / ./gradlew check(静的解析 + テスト)
+
+// コンパイラの警告(非推奨APIの使用・型の安全でない変換など)も、見逃さないようにエラーにする。
+// processing はアノテーションプロセッサが無いことの通知なので除く
+tasks.withType(JavaCompile).configureEach {
+	options.compilerArgs += ['-Xlint:all', '-Xlint:-processing', '-Werror']
+}
+
+checkstyle {
+	toolVersion = '14.3.0'
+	configFile = file('config/checkstyle/checkstyle.xml')
+	// 警告も1件でもあれば失敗にする
+	maxWarnings = 0
+}
+
+pmd {
+	toolVersion = '7.28.0'
+	ruleSetFiles = files('config/pmd/ruleset.xml')
+	// 既定のルールセットは使わず、config/pmd/ruleset.xml のルールだけを使う
+	ruleSets = []
+	consoleOutput = true
+}
+
+tasks.register('lint') {
+	group = 'verification'
+	description = '静的解析(コンパイラの警告・Checkstyle・PMD)だけを実行する'
+	dependsOn 'checkstyleMain', 'checkstyleTest', 'pmdMain', 'pmdTest'
 }
 
 tasks.named('test') {

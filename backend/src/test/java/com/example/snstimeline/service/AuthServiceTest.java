@@ -8,13 +8,13 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.example.snstimeline.service.storage.ImageStorage;
 import com.example.snstimeline.dto.AuthResponse;
 import com.example.snstimeline.dto.LoginRequest;
 import com.example.snstimeline.dto.SignupRequest;
 import com.example.snstimeline.entity.User;
 import com.example.snstimeline.exception.ApiException;
 import com.example.snstimeline.repository.UserRepository;
+import com.example.snstimeline.service.storage.ImageStorage;
 import java.util.Optional;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
