@@ -3,7 +3,8 @@
 [k6](https://grafana.com/docs/k6/latest/) で API に負荷をかけ、[要件定義書 8章](../要件定義書.md#8-非機能要件) の性能要件を満たしているかを確かめる。
 考え方は [設計書 7-5](../設計書.md#7-5-性能テスト) を参照。
 
-**CI では実行しない。** `./gradlew test`・`npm test`・`.github/workflows/ci.yml` とは関係なく、必要なときに手動で実行する。
+**PRごとの CI では実行しない。** `./gradlew test`・`npm test`・`.github/workflows/ci.yml` とは関係なく、必要なときに手動で実行する。
+実行方法は「ローカルで実行する」と「GitHub Actions から実行する」の2つ。
 (実行の目安: 性能に関わる変更(タイムラインのクエリ・インデックス・N+1対策など)をしたとき、AWSへデプロイしたとき)
 
 ## 構成
@@ -32,13 +33,36 @@ perf/
 
 p95 は「95%のリクエストがこの時間以内に返った」という値。平均だと一部の遅いリクエストが隠れるため、p95 で判定する。
 
-## 準備(初回のみ)
+## GitHub Actions から実行する
+
+準備は不要。毎回同じスペックの環境で、専用DBの起動 → バックエンドの起動 → テストデータの投入 → k6 の実行 まで自動で行う(`.github/workflows/perf.yml`)。
+
+1. GitHub のリポジトリの「Actions」タブ → 左の一覧の「性能テスト」を開く
+2. 「Run workflow」を押し、ブランチと入力を選んで実行する
+
+| 入力 | 内容 | 既定 |
+|---|---|---|
+| scenario | `smoke`(全APIを1回ずつ、約3分) / `load`(大勢が同時に使って合否を判定、約15分) | `smoke` |
+| vus | 同時に使う人数(load のみ、1〜1000) | `100` |
+| hold | 全員が使い続ける時間(load のみ。`3m`・`8m` など) | `8m` |
+| scale | テストデータの倍率(`1` = 100人・1万投稿 / `10` = 1000人・10万投稿) | `1` |
+
+- 合否の基準に外れるとジョブが失敗(✗)になる
+- 実行結果のページ(Summary)に、基準ごとの実測値と ✅ / ❌ の表が出る
+- 成果物(Artifacts)の `perf-<シナリオ>-<番号>` に、レポートのHTML・集計のJSON・遅いSQLの一覧(`pg-stat-statements.txt`)・バックエンドのログが入る(30日間保存)
+- **変更の前後を比べる**ときは、main と作業ブランチでそれぞれ同じ入力で実行し、Summary の表を見比べる
+- DBのパスワードとJWTの署名キーは、実行のたびにランダムに作って使い捨てる(Secrets の登録は不要)
+- GitHub のランナーは共有の仮想マシンで、アプリと k6 が同じマシンで動くため、ms 単位の値は目安。比べるのに使う
+
+## ローカルで実行する
+
+### 準備(初回のみ)
 
 1. k6 をインストールする: `winget install k6 --source winget`(Mac は `brew install k6`)
 2. Docker Desktop を起動しておく
 3. `backend/.env` と `application-local.properties` を作成済みであること([README](../README.md#初回のみ設定ファイルの作成))
 
-## 実行手順
+### 実行手順
 
 コマンドはすべてリポジトリのルートで、PowerShell で実行する。
 (Git Bash では `/seed/seed.sql` が Windows のパスに変換されてしまうため、`MSYS_NO_PATHCONV=1` を付ける)
@@ -62,7 +86,7 @@ $env:K6_WEB_DASHBOARD = "true"; $env:K6_WEB_DASHBOARD_EXPORT = "perf/results/loa
 k6 run --summary-export perf/results/load-summary.json perf/k6/scenarios/load.js
 ```
 
-### オプション
+### k6 のオプション
 
 | 指定 | 内容 | 例 |
 |---|---|---|

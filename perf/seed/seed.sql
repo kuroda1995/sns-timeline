@@ -103,11 +103,11 @@ FROM generate_series(1, :post_count * 2) AS g;
 -- 統計情報を更新し、実行計画が実際の件数に合うようにする
 VACUUM ANALYZE;
 
--- 投入時のSQLを計測結果に混ぜない
-SELECT pg_stat_statements_reset();
-
 SELECT 'users' AS "テーブル", count(*) AS "件数" FROM users
 UNION ALL SELECT 'follows', count(*) FROM follows
 UNION ALL SELECT 'posts', count(*) FROM posts
 UNION ALL SELECT 'likes', count(*) FROM likes
 UNION ALL SELECT 'comments', count(*) FROM comments;
+
+-- 投入時のSQLを計測結果に混ぜない(最後に実行する)
+SELECT pg_stat_statements_reset() IS NOT NULL AS "SQLの記録をリセット";
