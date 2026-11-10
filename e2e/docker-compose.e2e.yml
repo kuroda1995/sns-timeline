@@ -1,0 +1,33 @@
+# E2Eテスト専用の PostgreSQL(設計書 7-6)
+# 開発用DB(backend/docker-compose.yml、ポート5432)・性能テスト用DB(ポート5433)とは別のコンテナ・別のデータにする。
+# E2Eテストはユーザー・投稿を大量に作るため、開発用のデータに混ざらないようにするのが目的。
+#
+# パスワードは開発用と同じ backend/.env の POSTGRES_PASSWORD を使う(新しい秘密情報を増やさない)。
+# リポジトリのルートで実行する:
+#   docker compose --env-file backend/.env -f e2e/docker-compose.e2e.yml up -d
+
+# 開発用(sns-timeline)・性能テスト用(sns-timeline-perf)と別のプロジェクト名にして、お互いのコンテナを置き換えないようにする
+name: sns-timeline-e2e
+
+services:
+  postgres:
+    image: postgres:16
+    container_name: sns-timeline-e2e-postgres
+    environment:
+      POSTGRES_DB: sns_timeline_e2e
+      POSTGRES_USER: sns_timeline
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?backend/.env に POSTGRES_PASSWORD を設定し、--env-file backend/.env を付けて実行してください}
+      TZ: UTC
+    ports:
+      # 開発用DB(5432)・性能テスト用DB(5433)と同時に起動できるように、別のポートにする
+      - "5434:5432"
+    # `up -d --wait` で、接続できる状態になるまで待てるようにする。
+    # 初期化中の一時的なサーバーは TCP で待ち受けないため、-h を付けて本番のサーバーが起動したかを確かめる
+    healthcheck:
+      test: ["CMD", "pg_isready", "-h", "127.0.0.1", "-U", "sns_timeline", "-d", "sns_timeline_e2e"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    # テストのたびに作り直してよいデータなので、ボリュームは使わない(コンテナを消せばデータも消える)
+    tmpfs:
+      - /var/lib/postgresql/data

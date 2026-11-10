@@ -95,7 +95,8 @@ X（旧Twitter）風のテキストタイムライン型SNS（プログラミン
 | フロントエンド | React 19 + Vite（JavaScript）、React Router、oxlint |
 | バックエンド | Java 21 + Spring Boot 4.1（Web MVC / Spring Security / Spring Data JPA / Validation / Actuator）、Gradle |
 | API仕様書 | springdoc-openapi（Swagger UI）、Redocly CLI（HTML化）、openapi-typescript（フロントの型生成） |
-| CI | GitHub Actions（テスト・Lint・ビルド・API仕様書の差分チェック） |
+| CI | GitHub Actions（テスト・Lint・ビルド・API仕様書の差分チェック・E2Eテスト） |
+| テスト | JUnit・Testcontainers（バックエンド）、Vitest・React Testing Library（フロント）、Playwright（E2E・ブラウザ性能テスト）、k6（APIの性能テスト） |
 | 認証 | Spring Security + JWT（OAuth2 Resource Server） |
 | データベース | PostgreSQL 16（ローカル：Docker、AWS：RDS） |
 | 画像の保存先 | ローカルフォルダ（フェーズ1）／Amazon S3（フェーズ2） |
@@ -124,6 +125,7 @@ sns-timeline/
 ├── frontend/              # React + Vite製のフロントエンド
 ├── backend/               # Java + Spring Boot製のバックエンドAPI
 ├── infra/                 # TerraformによるAWS構成（フェーズ2で作成予定）
+├── e2e/                   # PlaywrightによるE2Eテスト（PRごとに実行）とブラウザ性能テスト
 ├── perf/                  # k6による性能テスト（PRごとには実行せず、ローカルか GitHub Actions から手動で実行する）
 ├── 要件定義書.md
 ├── 機能一覧.md
@@ -232,7 +234,9 @@ npm run build:api-doc  # API仕様書を1枚もののHTML（docs/api/dist/index.
 
 APIを変更したら、`backend/` で `./gradlew.bat test -PupdateApiDoc`（API仕様書の更新）、`frontend/` で `npm run gen:api-types`（型の更新）を実行し、生成されたファイルも一緒にコミットする（忘れると CI が失敗する。[設計書 4-4](./設計書.md#4-4-api仕様書openapiの自動生成)）。
 
-性能テスト（k6）は PRごとの CI では実行しない。性能に関わる変更をしたときなどに、ローカルか GitHub Actions の「性能テスト」ワークフロー（Run workflow）から手動で実行する。手順は [perf/README.md](./perf/README.md)（[設計書 7-5](./設計書.md#7-5-性能テスト)）。
+E2Eテスト（Playwright）は `e2e/` で `npm run db:up`（E2E専用DBの起動）→ `npx playwright test` で実行する。バックエンドと画面は Playwright が起動するので、開発サーバーは止めておく。PRごとの CI でも実行する。手順・テストの一覧は [e2e/README.md](./e2e/README.md)（[設計書 7-6](./設計書.md#7-6-e2eテスト)）。
+
+性能テスト（k6・ブラウザ性能テスト）は PRごとの CI では実行しない。性能に関わる変更をしたときなどに、ローカルか GitHub Actions の「性能テスト」ワークフロー（Run workflow）から手動で実行する。手順は [perf/README.md](./perf/README.md)（[設計書 7-5](./設計書.md#7-5-性能テスト)）。
 
 > 2026-11 より前に `application-local.properties` を作った場合は、Swagger UI を使うために `application-local.properties.example` の末尾の `springdoc.*` の2行を追記する。
 

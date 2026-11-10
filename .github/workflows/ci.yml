@@ -68,3 +68,65 @@ jobs:
         with:
           name: api-doc
           path: docs/api/dist/index.html
+
+  # 実際のブラウザ(Chromium)・バックエンド・DBをつないで、画面の操作の流れを確かめる(設計書 7-6、e2e/README.md)。
+  # バックエンドと画面は Playwright が起動する(e2e/support/servers.js)
+  e2e:
+    name: E2Eテスト(Playwright)
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        working-directory: e2e
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v6
+      - uses: actions/setup-node@v7
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            e2e/package-lock.json
+      - name: 画面の依存関係を入れる
+        run: npm ci
+        working-directory: frontend
+      - run: npm ci
+      - name: Lint
+        run: npm run lint
+      - name: Playwright のブラウザ(Chromium)を入れる
+        run: npx playwright install --with-deps chromium
+
+      # DBのパスワードとJWTの署名キーは、実行のたびにランダムに作る(リポジトリにも Secrets にも置かない)
+      - name: 使い捨ての秘密情報を作る
+        run: |
+          db_password=$(openssl rand -hex 24)
+          jwt_secret=$(openssl rand -base64 48)
+          echo "::add-mask::$db_password"
+          echo "::add-mask::$jwt_secret"
+          echo "POSTGRES_PASSWORD=$db_password" > "$RUNNER_TEMP/e2e.env"
+          echo "SPRING_DATASOURCE_PASSWORD=$db_password" >> "$GITHUB_ENV"
+          echo "JWT_SECRET=$jwt_secret" >> "$GITHUB_ENV"
+      - name: E2E専用DBを起動する
+        run: docker compose --env-file "$RUNNER_TEMP/e2e.env" -f docker-compose.e2e.yml up -d --wait
+
+      # CI には application-local.properties が無いため、e2e プロファイルだけで起動し、
+      # DBのユーザー名・パスワードとJWTの署名キーは環境変数で渡す
+      - name: E2Eテスト
+        env:
+          E2E_BACKEND_PROFILES: e2e
+          SPRING_DATASOURCE_USERNAME: sns_timeline
+        run: npx playwright test
+      - name: レポート(失敗した操作のトレース・スクリーンショット・動画)を保存
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: e2e-report
+          path: |
+            e2e/playwright-report/
+            e2e/test-results/
+          retention-days: 14

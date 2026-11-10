@@ -1,15 +1,16 @@
 # 性能テスト(設計書 7-5、perf/README.md)。
 # 時間がかかるため PR ごとには実行しない。Actions の画面で「性能テスト」→「Run workflow」から手動で実行する。
-# 専用DBの起動 → バックエンドの起動 → テストデータの投入 → k6 の実行 を毎回同じ環境で行い、変更の前後を比べられるようにする。
+# 専用DBの起動 → バックエンドの起動 → テストデータの投入 → k6(browser のときは Playwright)の実行 を毎回同じ環境で行い、
+# 変更の前後を比べられるようにする。
 name: 性能テスト
 
 on:
   workflow_dispatch:
     inputs:
       scenario:
-        description: シナリオ(smoke = 全APIを1回ずつ / load = 大勢が同時に使って合否を判定)
+        description: シナリオ(smoke = 全APIを1回ずつ / load = 大勢が同時に使って合否を判定 / browser = ブラウザで画面の表示・操作の時間を計測)
         type: choice
-        options: [smoke, load]
+        options: [smoke, load, browser]
         default: smoke
       vus:
         description: 同時に使う人数(load のみ)
@@ -61,6 +62,7 @@ jobs:
           java-version: '21'
       - uses: gradle/actions/setup-gradle@v6
       - uses: grafana/setup-k6-action@v1
+        if: inputs.scenario != 'browser'
         with:
           k6-version: '2.3.0'
 
@@ -113,6 +115,7 @@ jobs:
 
       # 合否の基準(perf/k6/lib/config.js)に外れると k6 の終了コードが非0になり、このジョブが失敗する
       - name: k6 を実行する
+        if: inputs.scenario != 'browser'
         env:
           K6_WEB_DASHBOARD: 'true'
           K6_WEB_DASHBOARD_EXPORT: perf/results/${{ inputs.scenario }}-report.html
@@ -121,8 +124,33 @@ jobs:
             -e VUS="$VUS" -e HOLD="$HOLD" -e USER_COUNT="$USER_COUNT" \
             "perf/k6/scenarios/$SCENARIO.js"
 
+      # ===== ブラウザ性能テスト(browser のみ。e2e/perf、perf/README.md「ブラウザ性能テスト」) =====
+      # バックエンドは上で起動したもの(perf プロファイル)を使い、画面(本番と同じビルド)は Playwright が起動する
+      - uses: actions/setup-node@v7
+        if: inputs.scenario == 'browser'
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            e2e/package-lock.json
+      - name: Playwright とブラウザ(Chromium)を入れる
+        if: inputs.scenario == 'browser'
+        run: |
+          npm ci --prefix frontend
+          npm ci --prefix e2e
+          cd e2e && npx playwright install --with-deps chromium
+      # 合否の基準(e2e/perf/support/budgets.js)に外れるとテストが失敗し、このジョブが失敗する。
+      # 結果の表は Playwright のレポーター(perf-reporter.js)がジョブのサマリーに出す
+      - name: ブラウザ性能テストを実行する
+        if: inputs.scenario == 'browser'
+        working-directory: e2e
+        env:
+          E2E_REUSE_SERVERS: '1'
+        run: npx playwright test --config=playwright.perf.config.js
+
       - name: 結果をジョブのサマリーに出す
-        if: always()
+        if: always() && inputs.scenario != 'browser'
         run: |
           summary="perf/results/$SCENARIO-summary.json"
           [ -f "$summary" ] || exit 0
@@ -166,5 +194,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: perf-${{ inputs.scenario }}-${{ github.run_number }}
-          path: perf/results/
+          path: |
+            perf/results/
+            e2e/playwright-report-perf/
           retention-days: 30
