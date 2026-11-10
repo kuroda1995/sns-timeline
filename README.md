@@ -4,7 +4,7 @@ X（旧Twitter）風のテキストタイムライン型SNS（プログラミン
 
 ログインした複数のユーザーが、テキストや画像を投稿し、お互いの投稿にいいね・コメントできるシンプルなSNS。フォローしたユーザーの投稿がタイムラインに新しい順で並ぶ。X/Twitterとの違いとして、**インプレッション数（表示回数）を表示しない**、**リツイート（リポスト）機能を持たない**ことで、数字や拡散を気にせず投稿できる場を目指す。
 
-フェーズ1（ローカル環境）の機能はすべて実装済みで、認証・投稿・画像の添付・タイムライン・いいね・コメント・フォロー・ユーザー検索・プロフィール（アイコン画像の変更を含む）が動く。次はフェーズ2（AWSへのデプロイ）（[開発フェーズ](#開発フェーズ)参照）。画面と操作は、HTML/CSS/JavaScriptだけで作った[プロトタイプ（mock/）](#mock-について)で先に確認できる。
+フェーズ1（ローカル環境）の機能はすべて実装済みで、認証・投稿・画像の添付・タイムライン・いいね・コメント・フォロー・ユーザー検索・プロフィール（アイコン画像の変更を含む）が動く。フェーズ2（AWSへのデプロイ）も完了し、CloudFront・S3・ECS Fargate・RDS の構成で動くことを確認した（[開発フェーズ](#開発フェーズ)参照）。画面と操作は、HTML/CSS/JavaScriptだけで作った[プロトタイプ（mock/）](#mock-について)で先に確認できる。
 
 ## ドキュメント一覧
 
@@ -15,7 +15,7 @@ X（旧Twitter）風のテキストタイムライン型SNS（プログラミン
 | [設計書](./設計書.md) | ER図、テーブル定義、主要なSQL（タイムライン・件数集計・検索）、API設計、API仕様書の自動生成 |
 | [API仕様書](./docs/api/openapi.yaml) | 全APIのリクエスト・レスポンス・エラー（OpenAPI 3.1）。Controller・DTO から自動生成する（[設計書 4-4](./設計書.md#4-4-api仕様書openapiの自動生成)）。ローカルでは Swagger UI（`http://localhost:8080/swagger-ui.html`）でも見られる |
 | [技術スタック](./技術スタック.md) | フロントエンド／バックエンド／DB／インフラ／開発ツールの一覧、予定しているディレクトリ構成 |
-| [インフラ構成図](./インフラ構成図.md) | AWS（EC2・ALB・RDS・S3）の構成図、セキュリティグループ、無料利用枠とコスト、Terraformのファイル構成 |
+| [インフラ構成図](./インフラ構成図.md) | AWS（CloudFront・S3・ALB・ECS Fargate・RDS）の構成図、セキュリティ、コスト、Terraformのファイル構成、デプロイと削除の手順 |
 | [品質チェックリスト](./品質チェックリスト.md) | フロント／バックエンド／ドキュメント整合性のチェック観点と、なぜそれを確認するかの解説 |
 | [品質チェック記録](./品質チェック記録.md) | 品質チェックを実施するたびに追記していく実施記録 |
 | [CLAUDE.md](./CLAUDE.md) | このリポジトリでのGit/GitHub運用ルール（ブランチ運用・ポート管理・秘密情報の扱い） |
@@ -47,7 +47,7 @@ X（旧Twitter）風のテキストタイムライン型SNS（プログラミン
 | 集計クエリとN+1問題 | いいね数・コメント数の表示 |
 | ページング | タイムラインの無限スクロール |
 | ファイルアップロードとクラウドストレージ | 画像投稿（Amazon S3） |
-| AWSでの本番に近い構成 | EC2 + ALB + RDS + S3、Terraform |
+| AWSでの本番に近い構成 | CloudFront + S3 + ALB + ECS Fargate + RDS、Terraform |
 
 詳しくは [要件定義書 1. 背景・目的](./要件定義書.md#1-背景目的) を参照。
 
@@ -100,7 +100,7 @@ X（旧Twitter）風のテキストタイムライン型SNS（プログラミン
 | 認証 | Spring Security + JWT（OAuth2 Resource Server） |
 | データベース | PostgreSQL 16（ローカル：Docker、AWS：RDS） |
 | 画像の保存先 | ローカルフォルダ（フェーズ1）／Amazon S3（フェーズ2） |
-| インフラ | AWS（VPC・ALB・EC2・RDS・S3・IAM）、Terraform |
+| インフラ | AWS（VPC・CloudFront・S3・ALB・ECS Fargate・ECR・RDS・SSM・IAM）、Docker、Terraform |
 
 詳細は [技術スタック](./技術スタック.md) を参照。
 
@@ -111,7 +111,7 @@ X（旧Twitter）風のテキストタイムライン型SNS（プログラミン
 | 要件定義・設計 | 完了 | 要件定義書・機能一覧・設計書・機能定義書・インフラ構成図の作成 |
 | プロトタイプ | 完了 | HTML/CSS/JavaScriptだけの画面確認用モック（`mock/`）。全画面・全機能を操作できる |
 | フェーズ1 | 完了（認証・投稿・画像の添付・タイムライン・いいね・コメント・フォロー・ユーザー検索・プロフィール） | ローカル環境（React + Spring Boot + Docker の PostgreSQL）で全機能を実装。画像は `backend/uploads/` に保存 |
-| フェーズ2 | 未着手 | 画像の保存先をS3に切り替え、Terraformで AWS（EC2・ALB・RDS・S3）にデプロイ |
+| フェーズ2 | 完了（2026-11-10 にデプロイと動作確認済み。費用を抑えるため、普段は `terraform destroy` で削除している） | 画像の保存先をS3に切り替え、Terraformで AWS（CloudFront・S3・ALB・ECS Fargate・RDS）にデプロイ |
 
 ## ディレクトリ構成
 
@@ -124,7 +124,7 @@ sns-timeline/
 ├── mock/                  # HTML/CSS/JavaScriptだけの画面確認用プロトタイプ（実装の本体ではない）
 ├── frontend/              # React + Vite製のフロントエンド
 ├── backend/               # Java + Spring Boot製のバックエンドAPI
-├── infra/                 # TerraformによるAWS構成（フェーズ2で作成予定）
+├── infra/                 # TerraformによるAWS構成（CloudFront・S3・ALB・ECS Fargate・RDS）とデプロイ用スクリプト
 ├── e2e/                   # PlaywrightによるE2Eテスト（PRごとに実行）とブラウザ性能テスト
 ├── perf/                  # k6による性能テスト（PRごとには実行せず、ローカルか GitHub Actions から手動で実行する）
 ├── 要件定義書.md
@@ -257,16 +257,18 @@ E2Eテスト（Playwright）は `e2e/` で `npm run db:up`（E2E専用DBの起�
 ## AWS構成（フェーズ2）
 
 ```
-ブラウザ ──HTTP──▶ ALB ──▶ EC2（Nginx ＋ Spring Boot） ──▶ RDS（PostgreSQL）
-                                    │
-                                    └──▶ S3（画像）◀── ブラウザ（署名付きURLで表示）
+ブラウザ ──HTTPS──▶ CloudFront ─┬─ /*     ──▶ S3（React のビルド結果）
+                                 └─ /api/* ──▶ ALB ──▶ ECS Fargate（Spring Boot） ──▶ RDS（PostgreSQL）
+                                                              │
+                                                              └──▶ S3（画像）◀── ブラウザ（署名付きURLで表示）
 ```
 
-- VPCを自分で設計し、ALBは2つのAZ、RDSはプライベートサブネットに置く
-- EC2はパブリックサブネットに置き、セキュリティグループでALBからの通信だけを許可する（NAT Gatewayを使わず無料利用枠に収めるため）
-- EC2からS3へは、アクセスキーではなくIAMロールでアクセスする
+- サーバー（EC2）は使わない。画面は S3 + CloudFront、API は ECS Fargate で動かす
+- CloudFront の既定ドメイン（`xxxx.cloudfront.net`）を使うので、独自ドメインなしで HTTPS になる。画面と API が同じURLになり、CORS も要らない
+- VPCを自分で設計し、ALBは2つのAZ、RDSはプライベートサブネットに置く。Fargate タスクはパブリックサブネットに置き、セキュリティグループで ALB からの通信だけを許可する（NAT Gateway を使わないため）
+- タスクから S3 へは、アクセスキーではなく IAM ロールでアクセスする。DBパスワード・JWT署名キーは SSM Parameter Store から渡す
 
-構成図・セキュリティグループ・コストの詳細は [インフラ構成図](./インフラ構成図.md) を参照。**ALBはAWSアカウントの作成時期によっては無料利用枠の対象外**になるため、構築前に必ず確認すること。
+**この構成を動かし続けると月 $70 前後かかる**（無料プランのクレジットが1か月持たない）。動作確認が済んだら `terraform destroy` で削除する。構成図・セキュリティ・コスト・デプロイと削除の手順は [インフラ構成図](./インフラ構成図.md) を参照。
 
 ## 開発の進め方（GitHub運用）
 

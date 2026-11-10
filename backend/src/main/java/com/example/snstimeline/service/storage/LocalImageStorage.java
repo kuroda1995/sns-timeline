@@ -9,13 +9,15 @@ import java.util.UUID;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Component;
 
 /**
  * フェーズ1(ローカル)の画像の保存先。backend/uploads/ に保存し、/uploads/** で配信する(WebConfig)。
- * backend/uploads/ は .gitignore 済み。
+ * backend/uploads/ は .gitignore 済み。app.storage.type が未設定または local のときに使う(s3 なら S3ImageStorage)。
  */
 @Component
+@ConditionalOnProperty(name = "app.storage.type", havingValue = "local", matchIfMissing = true)
 public class LocalImageStorage implements ImageStorage {
 
     private static final Logger log = LoggerFactory.getLogger(LocalImageStorage.class);

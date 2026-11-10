@@ -3,6 +3,7 @@ package com.example.snstimeline.config;
 import java.nio.file.Path;
 import java.time.Duration;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.CacheControl;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
@@ -12,8 +13,10 @@ import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
  * フェーズ1(ローカル)で、backend/uploads/ に保存した画像を /uploads/** で配信する(設計書 5章)。
  * ファイル名は UUID で、一度保存した画像は書き換えないため、ブラウザに長めにキャッシュさせる。
  * 保存先は LocalImageStorage と同じ設定値(app.storage.local-dir)を使う。
+ * S3 に保存するとき(app.storage.type=s3)は、画像は S3 の署名付きURLで配信するので使わない。
  */
 @Configuration
+@ConditionalOnProperty(name = "app.storage.type", havingValue = "local", matchIfMissing = true)
 public class WebConfig implements WebMvcConfigurer {
 
     private final Path uploadDir;

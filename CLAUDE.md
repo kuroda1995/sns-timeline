@@ -53,7 +53,7 @@
   - `backend/src/main/resources/application-local.properties`
   - `infra/terraform.tfvars`・`infra/*.tfstate*`・`infra/.terraform/`
   - `backend/uploads/`(ローカルに保存した画像)
-- AWSのアクセスキーはリポジトリ内のどのファイルにも書かない。EC2からS3へのアクセスはIAMロールで行う。
+- AWSのアクセスキーはリポジトリ内のどのファイルにも書かない。ECS のタスクから S3 へのアクセスはIAMロール(タスクロール)で行う。
 - `terraform apply` / `terraform destroy` など課金・データ削除を伴う操作は、ユーザーの明示的な指示がある場合のみ実行する。
 
 ## 7. Claude Codeへの指示

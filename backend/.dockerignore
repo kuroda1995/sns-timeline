@@ -1,0 +1,12 @@
+# コンテナイメージに入れないもの(秘密情報・ビルド結果・ローカルの画像)
+.env
+.env.*
+src/main/resources/application-local.properties
+uploads/
+build/
+bin/
+out/
+.gradle/
+docker-compose.yml
+Dockerfile
+.dockerignore
