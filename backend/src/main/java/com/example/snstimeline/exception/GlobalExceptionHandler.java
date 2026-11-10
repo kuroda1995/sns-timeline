@@ -68,7 +68,7 @@ public class GlobalExceptionHandler {
     /** 画像が1枚5MB・合計20MBを超えた(spring.servlet.multipart の上限) */
     @ExceptionHandler(MaxUploadSizeExceededException.class)
     public ResponseEntity<ErrorResponse> handleMaxUploadSize(MaxUploadSizeExceededException e) {
-        return ResponseEntity.status(HttpStatus.PAYLOAD_TOO_LARGE)
+        return ResponseEntity.status(HttpStatus.CONTENT_TOO_LARGE)
                 .body(ErrorResponse.of(413, "画像は1枚5MB以下、合計20MB以下にしてください"));
     }
 

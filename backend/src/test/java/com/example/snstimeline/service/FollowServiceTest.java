@@ -11,7 +11,6 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
-import com.example.snstimeline.service.storage.ImageStorage;
 import com.example.snstimeline.dto.FollowResponse;
 import com.example.snstimeline.dto.PageResponse;
 import com.example.snstimeline.dto.UserSummary;
@@ -20,6 +19,7 @@ import com.example.snstimeline.entity.User;
 import com.example.snstimeline.exception.ApiException;
 import com.example.snstimeline.repository.FollowRepository;
 import com.example.snstimeline.repository.UserRepository;
+import com.example.snstimeline.service.storage.ImageStorage;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.LongStream;

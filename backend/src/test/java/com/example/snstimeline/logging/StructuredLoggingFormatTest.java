@@ -37,6 +37,8 @@ class StructuredLoggingFormatTest {
         app.setWebApplicationType(WebApplicationType.NONE);
         app.setAdditionalProfiles(profiles);
         try (ConfigurableApplicationContext context = app.run("--spring.main.banner-mode=off")) {
+            // ログの形式の設定は、アプリが起動している間だけ有効
+            assertThat(context.isActive()).isTrue();
             MDC.put(LogFields.REQUEST_ID, "req-123");
             MDC.put(LogFields.USER_ID, "42");
             log.atInfo().setMessage("投稿しました").addKeyValue(LogFields.EVENT, "post.created")

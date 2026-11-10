@@ -94,11 +94,21 @@ public class OpenApiConfig {
 
             // リクエストの項目は入力チェックの @NotBlank などから自動で required になるため、レスポンスだけ対象にする
             components.getSchemas().forEach((name, schema) -> {
-                if (!name.endsWith("Request") && schema.getProperties() != null) {
-                    schema.setRequired(new ArrayList<>(schema.getProperties().keySet()));
+                if (!name.endsWith("Request")) {
+                    requireAllProperties(schema);
                 }
             });
         };
+    }
+
+    /**
+     * スキーマのすべての項目を required にする。
+     * components.getSchemas() は型引数の無い Schema を返すため、Schema&lt;?&gt; として受け取り、型の安全でない呼び出しを避ける
+     */
+    private static void requireAllProperties(Schema<?> schema) {
+        if (schema.getProperties() != null) {
+            schema.setRequired(new ArrayList<>(schema.getProperties().keySet()));
+        }
     }
 
     /** operation.security が null なら全体の設定(JWT必須)を引き継ぐ。空のリストなら @SecurityRequirements で外したAPI */

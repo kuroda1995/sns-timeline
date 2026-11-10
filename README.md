@@ -95,7 +95,7 @@ X（旧Twitter）風のテキストタイムライン型SNS（プログラミン
 | フロントエンド | React 19 + Vite（JavaScript）、React Router、oxlint |
 | バックエンド | Java 21 + Spring Boot 4.1（Web MVC / Spring Security / Spring Data JPA / Validation / Actuator）、Gradle |
 | API仕様書 | springdoc-openapi（Swagger UI）、Redocly CLI（HTML化）、openapi-typescript（フロントの型生成） |
-| CI | GitHub Actions（テスト・Lint・ビルド・API仕様書の差分チェック・E2Eテスト） |
+| CI | GitHub Actions（静的解析・テスト・ビルド・API仕様書の差分チェック・E2Eテスト） |
 | テスト | JUnit・Testcontainers（バックエンド）、Vitest・React Testing Library（フロント）、Playwright（E2E・ブラウザ性能テスト）、k6（APIの性能テスト） |
 | 認証 | Spring Security + JWT（OAuth2 Resource Server） |
 | データベース | PostgreSQL 16（ローカル：Docker、AWS：RDS） |
@@ -118,7 +118,7 @@ X（旧Twitter）風のテキストタイムライン型SNS（プログラミン
 ```
 sns-timeline/
 ├── .claude/skills/        # Claude Code用のプロジェクト固有スキル（開発サーバー起動・品質レビュー）
-├── .github/workflows/     # GitHub Actions（PRごとのテスト・Lint・ビルド・API仕様書の差分チェック）
+├── .github/workflows/     # GitHub Actions（PRごとの静的解析・テスト・E2E・ビルド・API仕様書の差分チェック）
 ├── 機能定義書/             # 機能ごとの詳しい仕様（9ファイル）
 ├── docs/api/              # API仕様書（openapi.yaml、自動生成）
 ├── mock/                  # HTML/CSS/JavaScriptだけの画面確認用プロトタイプ（実装の本体ではない）
@@ -220,14 +220,22 @@ npm run dev
 
 `http://localhost:5173` をブラウザ（Google Chrome推奨）で開き、ログイン画面が表示されれば起動成功。「新規登録」からアカウントを作ると、タイムライン（ホーム）が表示され、「投稿する」から投稿できる。
 
-その他のコマンド（バックエンドのテストは `cd backend && ./gradlew.bat test`。テスト用のPostgreSQLを起動するため Docker を起動しておく。[設計書 7章](./設計書.md#7-テスト方針)）：
+バックエンドのテスト・静的解析（`backend/` で実行。テスト用のPostgreSQLを起動するため Docker を起動しておく。[設計書 7章](./設計書.md#7-テスト方針)）：
+
+```bash
+./gradlew.bat test   # 単体・結合テスト
+./gradlew.bat lint   # 静的解析（コンパイラの警告・Checkstyle・PMD）だけ。Docker 不要
+./gradlew.bat check  # 静的解析 + テスト（CI と同じ）
+```
+
+フロントエンドのその他のコマンド（`frontend/` で実行）：
 
 ```bash
 npm test          # 単体テスト・コンポーネントテスト（Vitest）
 npm run test:watch  # ファイルを保存するたびにテストを実行
 npm run build     # 本番用ビルド
 npm run preview   # ビルド結果のプレビュー
-npm run lint      # oxlintによる静的解析
+npm run lint      # oxlintによる静的解析（警告も失敗にする）
 npm run gen:api-types  # API仕様書からAPIの型（src/api/schema.d.ts）を生成
 npm run build:api-doc  # API仕様書を1枚もののHTML（docs/api/dist/index.html）にする
 ```

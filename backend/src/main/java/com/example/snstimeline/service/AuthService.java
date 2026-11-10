@@ -67,7 +67,7 @@ public class AuthService {
             // 同時に同じユーザー名で登録された場合は、DBの一意インデックスで弾かれる
             user = userRepository.saveAndFlush(user);
         } catch (DataIntegrityViolationException e) {
-            throw new ApiException(HttpStatus.CONFLICT, "ユーザー名またはメールアドレスは既に使われています");
+            throw new ApiException(HttpStatus.CONFLICT, "ユーザー名またはメールアドレスは既に使われています", null, e);
         }
         log.atInfo().setMessage("新規登録しました")
                 .addKeyValue(LogFields.EVENT, "auth.signup").addKeyValue(LogFields.USER_ID, user.getId()).log();

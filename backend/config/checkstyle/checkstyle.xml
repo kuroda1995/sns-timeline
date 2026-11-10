@@ -1,0 +1,91 @@
+<?xml version="1.0"?>
+<!DOCTYPE module PUBLIC
+    "-//Checkstyle//DTD Checkstyle Configuration 1.3//EN"
+    "https://checkstyle.org/dtds/configuration_1_3.dtd">
+<!--
+  Checkstyle の設定(設計書 7-7)。コードの書き方(見た目)のばらつきを機械的に見つける。
+  Google・Sun の既定のルールセットは数百件の指摘が出るため使わず、このプロジェクトの今の書き方
+  (4スペースのインデント・ワイルドカードを使わない import・アルファベット順の import)に合わせて、
+  読みやすさ・不具合の元に関わるルールだけを選んでいる。
+  実行: ./gradlew checkstyleMain checkstyleTest(./gradlew check でも実行される)
+-->
+<module name="Checker">
+    <property name="charset" value="UTF-8"/>
+    <property name="severity" value="error"/>
+    <property name="fileExtensions" value="java"/>
+
+    <!-- テストのメソッド名は日本語で「何をしたら、どうなるべきか」を書く(設計書 7-3)ため、命名規則のチェックから外す -->
+    <module name="SuppressionSingleFilter">
+        <property name="files" value="[\\/]src[\\/]test[\\/]"/>
+        <property name="checks" value="MethodName"/>
+    </module>
+
+    <!-- インデントはスペース(タブを混ぜると、エディタによって見た目がずれる) -->
+    <module name="FileTabCharacter"/>
+    <module name="NewlineAtEndOfFile">
+        <property name="lineSeparator" value="lf_cr_crlf"/>
+    </module>
+    <!-- 1行が長すぎると、差分・レビューで読みにくい。日本語のコメントは長くなりやすいので対象外にする -->
+    <module name="LineLength">
+        <property name="max" value="160"/>
+        <property name="ignorePattern" value="^\s*(//|\*|/\*)|^import |^package "/>
+    </module>
+
+    <module name="TreeWalker">
+        <!-- ===== import ===== -->
+        <module name="AvoidStarImport"/>
+        <module name="RedundantImport"/>
+        <module name="UnusedImports"/>
+        <!-- static import を先に、その後に通常の import をアルファベット順に並べる(IntelliJ の「import の最適化」と同じ) -->
+        <module name="CustomImportOrder">
+            <property name="customImportOrderRules" value="STATIC###THIRD_PARTY_PACKAGE"/>
+            <property name="sortImportsInGroupAlphabetically" value="true"/>
+            <property name="separateLineBetweenGroups" value="true"/>
+        </module>
+
+        <!-- ===== 名前の付け方 ===== -->
+        <module name="PackageName">
+            <property name="format" value="^[a-z]+(\.[a-z][a-z0-9]*)*$"/>
+        </module>
+        <module name="TypeName"/>
+        <module name="MethodName"/>
+        <module name="MemberName"/>
+        <module name="ParameterName"/>
+        <module name="LocalVariableName"/>
+        <!-- ロガーは慣例どおり log と書く(private static final Logger log = ...) -->
+        <module name="ConstantName">
+            <property name="format" value="^(log|[A-Z][A-Z0-9]*(_[A-Z0-9]+)*)$"/>
+        </module>
+        <module name="StaticVariableName"/>
+
+        <!-- ===== 書き方 ===== -->
+        <!-- if・for の {} を省略すると、後から行を足したときに範囲の外に出てしまう -->
+        <module name="NeedBraces"/>
+        <module name="LeftCurly"/>
+        <module name="RightCurly"/>
+        <module name="OneStatementPerLine"/>
+        <module name="MultipleVariableDeclarations"/>
+        <module name="ModifierOrder"/>
+        <module name="RedundantModifier"/>
+        <module name="UpperEll"/>
+        <module name="ArrayTypeStyle"/>
+        <module name="EmptyStatement"/>
+        <!-- 空の catch は、理由をコメントで書いたものだけを許す -->
+        <module name="EmptyCatchBlock">
+            <property name="commentFormat" value=".+"/>
+        </module>
+        <module name="EmptyBlock">
+            <property name="option" value="text"/>
+        </module>
+
+        <!-- ===== 不具合の元になりやすい書き方 ===== -->
+        <!-- 文字列を == で比べると、同じ内容でも false になることがある -->
+        <module name="StringLiteralEquality"/>
+        <module name="EqualsHashCode"/>
+        <module name="SimplifyBooleanExpression"/>
+        <module name="SimplifyBooleanReturn"/>
+        <module name="FallThrough"/>
+        <module name="CovariantEquals"/>
+        <module name="InnerAssignment"/>
+    </module>
+</module>

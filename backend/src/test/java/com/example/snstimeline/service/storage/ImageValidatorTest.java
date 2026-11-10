@@ -76,7 +76,7 @@ class ImageValidatorTest {
         assertThat(validator.validate(file("ok.jpg", "image/jpeg", fiveMb), "images").type()).isEqualTo(ImageType.JPEG);
         assertThatThrownBy(() -> validator.validate(file("big.jpg", "image/jpeg", over), "images"))
                 .isInstanceOfSatisfying(ApiException.class, e -> {
-                    assertThat(e.getStatus()).isEqualTo(HttpStatus.PAYLOAD_TOO_LARGE);
+                    assertThat(e.getStatus()).isEqualTo(HttpStatus.CONTENT_TOO_LARGE);
                     assertThat(e.getMessage()).isEqualTo(ImageValidator.SIZE_MESSAGE);
                 });
     }

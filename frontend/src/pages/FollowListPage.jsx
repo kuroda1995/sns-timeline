@@ -29,9 +29,11 @@ export function FollowListPage({ kind }) {
     }
   }, [username])
 
-  // タブを切り替えたときは一番上から表示する
+  // タブを切り替えたときは一番上から表示する。
+  // username・kind は中で使っていないが、「変わったときに実行する」きっかけとしてわざと指定している
   useEffect(() => {
     window.scrollTo(0, 0)
+    // oxlint-disable-next-line react/exhaustive-effect-dependencies
   }, [username, kind])
 
   const loaded = result?.username === username ? result : null

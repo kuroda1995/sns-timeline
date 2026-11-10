@@ -28,7 +28,7 @@ public class ImageValidator {
      */
     public ValidatedImage validate(MultipartFile file, String field) {
         if (file.getSize() > MAX_SIZE) {
-            throw new ApiException(HttpStatus.PAYLOAD_TOO_LARGE, SIZE_MESSAGE, field);
+            throw new ApiException(HttpStatus.CONTENT_TOO_LARGE, SIZE_MESSAGE, field);
         }
         byte[] content;
         try {

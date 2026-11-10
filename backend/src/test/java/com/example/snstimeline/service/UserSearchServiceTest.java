@@ -10,7 +10,6 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
-import com.example.snstimeline.service.storage.ImageStorage;
 import com.example.snstimeline.dto.UserListResponse;
 import com.example.snstimeline.dto.UserSearchResponse;
 import com.example.snstimeline.entity.User;
@@ -18,6 +17,7 @@ import com.example.snstimeline.exception.ApiException;
 import com.example.snstimeline.repository.FollowRepository;
 import com.example.snstimeline.repository.UserRepository;
 import com.example.snstimeline.service.UserSearchService.Keyword;
+import com.example.snstimeline.service.storage.ImageStorage;
 import java.util.List;
 import java.util.stream.LongStream;
 import org.junit.jupiter.api.BeforeEach;

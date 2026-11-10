@@ -1,19 +1,57 @@
-# PRごとにテスト・Lint・ビルドと、API仕様書(docs/api/openapi.yaml)が実装と一致しているかを確認する(設計書 4-4)
+# PRごと・main への push ごとに、次をすべて自動で実行する(設計書 7-4・7-7)。性能テストは対象外(perf.yml を手動で実行する)
+#   バックエンド: 静的解析(コンパイラの警告・Checkstyle・PMD) / 単体・結合テスト(API仕様書の差分チェックを含む)
+#   フロントエンド: Lint(oxlint) / 単体・コンポーネントテスト / ビルド / APIの型の差分チェック
+#   E2E: Lint / Playwright による E2E テスト
+# 最後の「CI 結果」ジョブで全部の結果をまとめる。ブランチ保護の必須チェックにはこのジョブを指定する
 name: CI
 
 on:
   pull_request:
   push:
     branches: [main]
+  # Actions の画面から手動でも実行できるようにする(「Run workflow」)
+  workflow_dispatch:
 
 permissions:
   contents: read
 
+# 同じ PR に続けて push したら、古い実行は止めて新しいものだけを実行する(main への push は止めない)
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
-  backend:
-    # Repository・API結合テストは Testcontainers で PostgreSQL を起動する(ubuntu-latest には Docker が入っている)
-    name: バックエンド(テスト・API仕様書の差分チェック)
+  backend-lint:
+    name: バックエンド(静的解析)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: gradle/actions/setup-gradle@v6
+      # --continue: Checkstyle で指摘があっても PMD まで実行し、全部の指摘を一度に出す
+      - name: 静的解析(コンパイラの警告・Checkstyle・PMD)
+        run: ./gradlew lint --continue
+      - name: 静的解析のレポートを保存
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: backend-lint-report
+          path: |
+            backend/build/reports/checkstyle/
+            backend/build/reports/pmd/
+
+  backend-test:
+    # Repository・API結合テストは Testcontainers で PostgreSQL を起動する(ubuntu-latest には Docker が入っている)
+    name: バックエンド(単体・結合テスト・API仕様書の差分チェック)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     defaults:
       run:
         working-directory: backend
@@ -27,6 +65,20 @@ jobs:
       # OpenApiDocTest が、コミット済みの docs/api/openapi.yaml と実装から生成した結果を比べる
       - name: テスト
         run: ./gradlew test
+      - name: テストの件数をジョブのサマリーに出す
+        if: ${{ !cancelled() }}
+        run: |
+          shopt -s nullglob
+          files=(build/test-results/test/*.xml)
+          [ ${#files[@]} -gt 0 ] || exit 0
+          sum() { grep -ho "<testsuite [^>]*" "${files[@]}" | grep -o " $1=\"[0-9]*\"" | grep -o "[0-9]*" | awk '{ s += $1 } END { print s + 0 }'; }
+          {
+            echo "## バックエンドのテスト"
+            echo
+            echo "| 実行 | 失敗 | エラー | スキップ |"
+            echo "|---|---|---|---|"
+            echo "| $(sum tests) | $(sum failures) | $(sum errors) | $(sum skipped) |"
+          } >> "$GITHUB_STEP_SUMMARY"
       - name: テストレポートを保存
         if: failure()
         uses: actions/upload-artifact@v7
@@ -35,8 +87,9 @@ jobs:
           path: backend/build/reports/tests/test/
 
   frontend:
-    name: フロントエンド(Lint・ビルド・APIの型の差分チェック)
+    name: フロントエンド(Lint・テスト・ビルド・APIの型の差分チェック)
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     defaults:
       run:
         working-directory: frontend
@@ -47,14 +100,20 @@ jobs:
           node-version: '24'
           cache: npm
           cache-dependency-path: frontend/package-lock.json
-      - run: npm ci
-      - name: Lint
+      - id: install
+        run: npm ci
+      # Lint で指摘があっても、テスト・ビルドまで実行して全部の問題を一度に出す(どれかが失敗すればジョブは失敗)
+      - name: Lint(oxlint。警告も失敗にする)
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run lint
-      - name: テスト
+      - name: 単体・コンポーネントテスト
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm test
       - name: ビルド
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run build
       - name: APIの型(src/api/schema.d.ts)が openapi.yaml と一致しているか
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: |
           npm run gen:api-types
           git diff --exit-code -- src/api/schema.d.ts || {
@@ -62,8 +121,10 @@ jobs:
             exit 1
           }
       - name: API仕様書(HTML)を作る
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         run: npm run build:api-doc
       - name: API仕様書(HTML)を保存
+        if: ${{ !cancelled() && steps.install.outcome == 'success' }}
         uses: actions/upload-artifact@v7
         with:
           name: api-doc
@@ -96,7 +157,7 @@ jobs:
         run: npm ci
         working-directory: frontend
       - run: npm ci
-      - name: Lint
+      - name: Lint(oxlint。警告も失敗にする)
         run: npm run lint
       - name: Playwright のブラウザ(Chromium)を入れる
         run: npx playwright install --with-deps chromium
@@ -130,3 +191,22 @@ jobs:
             e2e/playwright-report/
             e2e/test-results/
           retention-days: 14
+
+  # 上のジョブが1つでも失敗・キャンセル・スキップされたら失敗にする。
+  # ジョブを追加・改名しても、ブランチ保護の必須チェックはこの1つを指定しておけばよい
+  result:
+    name: CI 結果
+    if: always()
+    needs: [backend-lint, backend-test, frontend, e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - name: すべてのジョブが成功したか
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS" | jq -r 'to_entries[] | "\(.key): \(.value.result)"'
+          failed=$(echo "$RESULTS" | jq -r '[to_entries[] | select(.value.result != "success") | .key] | join(", ")')
+          if [ -n "$failed" ]; then
+            echo "::error::成功しなかったジョブがあります: $failed"
+            exit 1
+          fi
