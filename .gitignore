@@ -28,6 +28,11 @@ backend/uploads/
 frontend/node_modules/
 frontend/dist/
 
+# ===== 性能テスト(k6) =====
+# 計測結果(レポートのHTML・集計のJSON)は実行するたびに作られるのでコミットしない
+perf/results/*
+!perf/results/.gitkeep
+
 # ===== API仕様書 =====
 # npm run build:api-doc で作るHTML(GitHub Actions の成果物からもダウンロードできる)
 docs/api/dist/

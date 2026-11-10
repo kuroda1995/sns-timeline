@@ -124,6 +124,7 @@ sns-timeline/
 ├── frontend/              # React + Vite製のフロントエンド
 ├── backend/               # Java + Spring Boot製のバックエンドAPI
 ├── infra/                 # TerraformによるAWS構成（フェーズ2で作成予定）
+├── perf/                  # k6による性能テスト（CIでは実行せず、必要なときに手動で実行する）
 ├── 要件定義書.md
 ├── 機能一覧.md
 ├── 設計書.md
@@ -230,6 +231,8 @@ npm run build:api-doc  # API仕様書を1枚もののHTML（docs/api/dist/index.
 ```
 
 APIを変更したら、`backend/` で `./gradlew.bat test -PupdateApiDoc`（API仕様書の更新）、`frontend/` で `npm run gen:api-types`（型の更新）を実行し、生成されたファイルも一緒にコミットする（忘れると CI が失敗する。[設計書 4-4](./設計書.md#4-4-api仕様書openapiの自動生成)）。
+
+性能テスト（k6）は CI では実行しない。性能に関わる変更をしたときなどに、[perf/README.md](./perf/README.md) の手順で手動で実行する（[設計書 7-5](./設計書.md#7-5-性能テスト)）。
 
 > 2026-11 より前に `application-local.properties` を作った場合は、Swagger UI を使うために `application-local.properties.example` の末尾の `springdoc.*` の2行を追記する。
 
